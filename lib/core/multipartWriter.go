@@ -22,7 +22,7 @@ func NewMultipartWriter() *MultipartWriter {
 
 func (m *MultipartWriter) Send(method string, url string, header map[string][]string) (response *http.Response, err error) {
 	m.w.Close()
-	//fmt.Println("------------")
+	//fmt.Println("------------ MultipartWriter")
 	//spew.Dump(m.w)
 	//fmt.Println("------------")
 
@@ -40,6 +40,10 @@ func (m *MultipartWriter) Send(method string, url string, header map[string][]st
 		}
 
 	}
+
+	//fmt.Println("------------ req")
+	//spew.Dump(req)
+	//fmt.Println("------------")
 
 	// Submit the request
 	client := &http.Client{}

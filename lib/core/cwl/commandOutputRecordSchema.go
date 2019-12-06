@@ -14,7 +14,7 @@ type CommandOutputRecordSchema struct {
 //func (c *CommandOutputRecordSchema) Is_CommandOutputParameterType() {}
 func (c *CommandOutputRecordSchema) Is_Type()            {}
 func (c *CommandOutputRecordSchema) Type2String() string { return "CommandOutputRecordSchema" }
-func (c *CommandOutputRecordSchema) GetId() string       { return "" }
+func (c *CommandOutputRecordSchema) GetID() string       { return "" }
 
 func NewCommandOutputRecordSchema() (schema *CommandOutputRecordSchema, err error) {
 
@@ -38,14 +38,14 @@ func NewCommandOutputRecordSchemaFromInterface(native interface{}, schemata []CW
 
 	switch native.(type) {
 	case map[string]interface{}:
-		native_map, ok := native.(map[string]interface{})
+		nativeMap, ok := native.(map[string]interface{})
 		if !ok {
 			err = fmt.Errorf("(NewCommandoutputRecordSchemaFromInterface) type switch error")
 			return
 		}
 
 		var rs *RecordSchema
-		rs, err = NewRecordSchema(native_map)
+		rs, err = NewRecordSchema(nativeMap)
 		if err != nil {
 			return
 		}
@@ -56,7 +56,7 @@ func NewCommandOutputRecordSchemaFromInterface(native interface{}, schemata []CW
 			return
 		}
 
-		fields, has_fields := native_map["fields"]
+		fields, has_fields := nativeMap["fields"]
 		if !has_fields {
 			err = fmt.Errorf("(NewCommandoutputRecordSchemaFromInterface) no fields")
 			return

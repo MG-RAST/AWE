@@ -3,6 +3,11 @@ package controller
 import (
 	"encoding/json"
 	"fmt"
+	"io/ioutil"
+	"net/http"
+	"strconv"
+	"strings"
+
 	"github.com/MG-RAST/AWE/lib/conf"
 	"github.com/MG-RAST/AWE/lib/core"
 	e "github.com/MG-RAST/AWE/lib/errors"
@@ -11,22 +16,19 @@ import (
 	"github.com/MG-RAST/AWE/lib/request"
 	"github.com/MG-RAST/AWE/lib/user"
 	"github.com/MG-RAST/golib/goweb"
-	"io/ioutil"
-	"net/http"
-	"strconv"
-	"strings"
 )
 
+// ClientController _
 type ClientController struct{}
 
-// OPTIONS: /client
+// Options OPTIONS: /client
 func (cr *ClientController) Options(cx *goweb.Context) {
 	LogRequest(cx.Request)
 	cx.RespondWithOK()
 	return
 }
 
-// POST: /client - register a new client
+// Create POST: /client - register a new client
 func (cr *ClientController) Create(cx *goweb.Context) {
 	logger.Debug(3, "POST /client")
 	// Log Request and check for Auth
@@ -57,16 +59,19 @@ func (cr *ClientController) Create(cx *goweb.Context) {
 	}
 
 	//log event about client registration (CR)
-	logger.Event(event.CLIENT_REGISTRATION, "clientid="+client.Id+";hostname="+client.Hostname+";hostip="+client.Host_ip+";group="+client.Group+";instance_id="+client.InstanceId+";instance_type="+client.InstanceType+";domain="+client.Domain)
+	logger.Event(event.CLIENT_REGISTRATION, "clientid="+client.ID+";hostname="+client.Hostname+";hostip="+client.HostIP+";group="+client.Group+";instance_id="+client.InstanceID+";instance_type="+client.InstanceType+";domain="+client.Domain)
 
-	rlock, err := client.RLockNamed("ClientController/Create")
-	if err != nil {
-		msg := "Lock error:" + err.Error()
-		logger.Error(msg)
-		cx.RespondWithErrorMessage(msg, http.StatusBadRequest)
-	}
-	defer client.RUnlockNamed(rlock)
-	cx.RespondWithData(client)
+	// rlock, err := client.RLockNamed("ClientController/Create")
+	// if err != nil {
+	// 	msg := "Lock error:" + err.Error()
+	// 	logger.Error(msg)
+	// 	cx.RespondWithErrorMessage(msg, http.StatusBadRequest)
+	// }
+	//defer client.RUnlockNamed(rlock)
+
+	rr := core.NewRegistrationResponse()
+
+	cx.RespondWithData(rr)
 
 	return
 }
@@ -120,7 +125,7 @@ func (cr *ClientController) Read(id string, cx *goweb.Context) {
 	return
 }
 
-// GET: /client
+// ReadMany GET: /client
 func (cr *ClientController) ReadMany(cx *goweb.Context) {
 	LogRequest(cx.Request)
 
@@ -153,11 +158,11 @@ func (cr *ClientController) ReadMany(cx *goweb.Context) {
 
 	if query.Has("busy") {
 		for _, client := range clients {
-			work_length, err := client.Current_work.Length(true)
+			workLength, err := client.CurrentWork.Length(true)
 			if err != nil {
 				continue
 			}
-			if work_length > 0 {
+			if workLength > 0 {
 				filtered = append(filtered, client)
 			}
 		}
@@ -169,7 +174,7 @@ func (cr *ClientController) ReadMany(cx *goweb.Context) {
 		}
 	} else if query.Has("status") {
 		for _, client := range clients {
-			status, xerr := client.Get_New_Status(false)
+			status, xerr := client.GetNewStatus(false)
 			if xerr != nil {
 				continue
 			}
@@ -201,7 +206,7 @@ func (cr *ClientController) ReadMany(cx *goweb.Context) {
 	return
 }
 
-// PUT: /client/{id} -> status update
+// Update PUT: /client/{id} -> status update
 func (cr *ClientController) Update(id string, cx *goweb.Context) {
 	LogRequest(cx.Request)
 
@@ -215,10 +220,10 @@ func (cr *ClientController) Update(id string, cx *goweb.Context) {
 			return
 		}
 
-		const MAX_MEMORY = 1024
+		const maxMemory = 1024
 
 		r := cx.Request
-		worker_status_bytes, err := ioutil.ReadAll(r.Body)
+		workerStatusBytes, err := ioutil.ReadAll(r.Body)
 		defer r.Body.Close()
 
 		if err != nil {
@@ -227,14 +232,14 @@ func (cr *ClientController) Update(id string, cx *goweb.Context) {
 		}
 
 		worker_status := core.WorkerState{}
-		err = json.Unmarshal(worker_status_bytes, &worker_status)
+		err = json.Unmarshal(workerStatusBytes, &worker_status)
 		if err != nil {
-			err = fmt.Errorf("%s, worker_status_bytes: %s", err, string(worker_status_bytes[:]))
+			err = fmt.Errorf("%s, worker_status_bytes: %s", err, string(workerStatusBytes[:]))
 			cx.RespondWithErrorMessage(err.Error(), http.StatusBadRequest)
 			//cx.Respond(data interface{}, statusCode int, []string{err.Error()}, cx)
 			return
 		}
-		worker_status.Current_work.Init("Current_work")
+		worker_status.CurrentWork.Init("Current_work")
 
 		hbmsg, err := core.QMgr.ClientHeartBeat(id, cg, worker_status)
 		if err != nil {

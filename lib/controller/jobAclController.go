@@ -1,6 +1,9 @@
 package controller
 
 import (
+	"net/http"
+	"strings"
+
 	"github.com/MG-RAST/AWE/lib/conf"
 	"github.com/MG-RAST/AWE/lib/core"
 	e "github.com/MG-RAST/AWE/lib/errors"
@@ -9,8 +12,6 @@ import (
 	"github.com/MG-RAST/golib/go-uuid/uuid"
 	"github.com/MG-RAST/golib/goweb"
 	mgo "gopkg.in/mgo.v2"
-	"net/http"
-	"strings"
 )
 
 var (
@@ -48,7 +49,7 @@ var JobAclController goweb.ControllerFunc = func(cx *goweb.Context) {
 
 	// Load job by id
 	//job, err := core.LoadJob(jid)
-	acl, err := core.DBGetJobAcl(jid)
+	acl, err := core.DBGetJobACL(jid)
 	if err != nil {
 		if err == mgo.ErrNotFound {
 			cx.RespondWithNotFound()
@@ -115,7 +116,7 @@ var JobAclControllerTyped goweb.ControllerFunc = func(cx *goweb.Context) {
 	//	return
 	//}
 
-	acl, err := core.DBGetJobAcl(jid)
+	acl, err := core.DBGetJobACL(jid)
 	if err != nil {
 		if err == mgo.ErrNotFound {
 			cx.RespondWithNotFound()

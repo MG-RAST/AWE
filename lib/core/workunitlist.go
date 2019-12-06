@@ -3,7 +3,7 @@ package core
 import (
 	"fmt"
 
-	"github.com/MG-RAST/AWE/lib/rwmutex"
+	rwmutex "github.com/MG-RAST/go-rwmutex"
 )
 
 type WorkunitList struct {
@@ -56,8 +56,27 @@ func (cl *WorkunitList) Length(lock bool) (clength int, err error) {
 	return
 }
 
-func (cl *WorkunitList) Delete(workid Workunit_Unique_Identifier, write_lock bool) (err error) {
-	if write_lock {
+// IsEmpty _
+func (cl *WorkunitList) IsEmpty(lock bool) (empty bool, err error) {
+	if lock {
+		readLock, xerr := cl.RLockNamed("IsEmpty")
+		if xerr != nil {
+			err = xerr
+			return
+		}
+		defer cl.RUnlockNamed(readLock)
+	}
+	if len(cl.Data) == 0 {
+		empty = true
+		return
+	}
+	empty = false
+
+	return
+}
+
+func (cl *WorkunitList) Delete(workid Workunit_Unique_Identifier, writeLock bool) (err error) {
+	if writeLock {
 		err = cl.LockNamed("Delete")
 		defer cl.Unlock()
 	}
@@ -66,8 +85,8 @@ func (cl *WorkunitList) Delete(workid Workunit_Unique_Identifier, write_lock boo
 	return
 }
 
-func (cl *WorkunitList) Delete_all(workid string, write_lock bool) (err error) {
-	if write_lock {
+func (cl *WorkunitList) Delete_all(workid string, writeLock bool) (err error) {
+	if writeLock {
 		err = cl.LockNamed("Delete_all")
 		defer cl.Unlock()
 	}

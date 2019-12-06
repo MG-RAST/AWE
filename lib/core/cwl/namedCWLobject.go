@@ -5,20 +5,23 @@ import (
 	"reflect"
 )
 
-type Named_CWL_object struct {
-	CWL_id_Impl `yaml:",inline" json:",inline" bson:",inline" mapstructure:",squash"` // provides id
-	Value       CWL_object                                                            `yaml:"value,omitempty" bson:"value,omitempty" json:"value,omitempty" mapstructure:"value,omitempty"`
+// NamedCWLObject _
+type NamedCWLObject struct {
+	IdentifierImpl `yaml:",inline" json:",inline" bson:",inline" mapstructure:",squash"` // provides id
+	Value          CWLObject                                                             `yaml:"value,omitempty" bson:"value,omitempty" json:"value,omitempty" mapstructure:"value,omitempty"`
 }
 
-//type Named_CWL_object_array []Named_CWL_object
+//type NamedCWLObject_array []NamedCWLObject
 
-func NewNamed_CWL_object(id string, value CWL_object) Named_CWL_object {
-	x := Named_CWL_object{Value: value}
-	x.Id = id
+// NewNamedCWLObject _
+func NewNamedCWLObject(id string, value CWLObject) NamedCWLObject {
+	x := NamedCWLObject{Value: value}
+	x.ID = id
 	return x
 }
 
-func NewNamed_CWL_object_from_interface(original interface{}, context *WorkflowContext) (x Named_CWL_object, schemata []CWLType_Type, err error) {
+// NewNamedCWLObjectFromInterface _
+func NewNamedCWLObjectFromInterface(original interface{}, context *WorkflowContext) (x NamedCWLObject, schemata []CWLType_Type, err error) {
 
 	original, err = MakeStringMap(original, context)
 	if err != nil {
@@ -31,49 +34,49 @@ func NewNamed_CWL_object_from_interface(original interface{}, context *WorkflowC
 		var ok bool
 		original_map, ok = original.(map[string]interface{})
 		if !ok {
-			err = fmt.Errorf("(NewNamed_CWL_object_from_interface) not a map (%s)", reflect.TypeOf(original))
+			err = fmt.Errorf("(NewNamedCWLObject_from_interface) not a map (%s)", reflect.TypeOf(original))
 			return
 		}
 
-		x = Named_CWL_object{}
+		x = NamedCWLObject{}
 
 		var id interface{}
 		id, ok = original_map["id"]
 		if !ok {
-			err = fmt.Errorf("(NewNamed_CWL_object_from_interface) id not found")
+			err = fmt.Errorf("(NewNamedCWLObject_from_interface) id not found")
 			return
 		}
 		var id_str string
 		id_str, ok = id.(string)
 		if !ok {
-			err = fmt.Errorf("(NewNamed_CWL_object_from_interface) id not a string")
+			err = fmt.Errorf("(NewNamedCWLObject_from_interface) id not a string")
 			return
 		}
-		x.Id = id_str
+		x.ID = id_str
 
 		var value interface{}
 		value, ok = original_map["value"]
 		if !ok {
-			err = fmt.Errorf("(NewNamed_CWL_object_from_interface) value not found")
+			err = fmt.Errorf("(NewNamedCWLObject_from_interface) value not found")
 			return
 		}
 
-		var obj CWL_object
-		obj, schemata, err = New_CWL_object(value, nil, context)
+		var obj CWLObject
+		obj, schemata, err = NewCWLObject(value, id_str, "", nil, context)
 		if err != nil {
-			err = fmt.Errorf("(NewNamed_CWL_object_from_interface) New_CWL_object returned: %s", err.Error())
+			err = fmt.Errorf("(NewNamedCWLObject_from_interface) NewCWLObject returned: %s", err.Error())
 			return
 		}
 
 		x.Value = obj
 		return
 	default:
-		err = fmt.Errorf("(NewNamed_CWL_object_from_interface) not a map (%s)", reflect.TypeOf(original))
+		err = fmt.Errorf("(NewNamedCWLObject_from_interface) not a map (%s)", reflect.TypeOf(original))
 	}
 	return
 }
 
-func NewNamed_CWL_object_array(original interface{}, context *WorkflowContext) (array []Named_CWL_object, schemata []CWLType_Type, err error) {
+func NewNamedCWLObject_array(original interface{}, context *WorkflowContext) (array []NamedCWLObject, schemata []CWLType_Type, err error) {
 
 	//original, err = makeStringMap(original)
 	//if err != nil {
@@ -81,38 +84,38 @@ func NewNamed_CWL_object_array(original interface{}, context *WorkflowContext) (
 	//}
 
 	if original == nil {
-		err = fmt.Errorf("(NewNamed_CWL_object_array) original == nil")
+		err = fmt.Errorf("(NewNamedCWLObject_array) original == nil")
 		return
 	}
 
-	array = []Named_CWL_object{}
+	array = []NamedCWLObject{}
 
 	switch original.(type) {
 
 	case []interface{}:
 
-		org_a := original.([]interface{})
+		orgA := original.([]interface{})
 
-		for _, element := range org_a {
-			var schemata_new []CWLType_Type
-			var cwl_object Named_CWL_object
-			cwl_object, schemata_new, err = NewNamed_CWL_object_from_interface(element, context)
+		for _, element := range orgA {
+			var schemataNew []CWLType_Type
+			var cwlObject NamedCWLObject
+			cwlObject, schemataNew, err = NewNamedCWLObjectFromInterface(element, context)
 			if err != nil {
-				err = fmt.Errorf("(NewNamed_CWL_object_array) New_CWL_object returned %s", err.Error())
+				err = fmt.Errorf("(NewNamedCWLObject_array) NewCWLObject returned %s", err.Error())
 				return
 			}
 
-			array = append(array, cwl_object)
+			array = append(array, cwlObject)
 
-			for i, _ := range schemata_new {
-				schemata = append(schemata, schemata_new[i])
+			for i := range schemataNew {
+				schemata = append(schemata, schemataNew[i])
 			}
 		}
 
 		return
 
 	default:
-		err = fmt.Errorf("(NewNamed_CWL_object_array), unknown type %s", reflect.TypeOf(original))
+		err = fmt.Errorf("(NewNamedCWLObject_array), unknown type %s", reflect.TypeOf(original))
 	}
 	return
 

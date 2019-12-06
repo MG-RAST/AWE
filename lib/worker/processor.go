@@ -154,7 +154,7 @@ func processor_run(control chan int) (err error) {
 }
 
 func processor(control chan int) {
-	fmt.Printf("(processor) launched, client=%s\n", core.Self.Id)
+	fmt.Printf("(processor) launched, client=%s\n", core.Self.ID)
 	defer fmt.Printf("(processor)  exiting...\n")
 	count := 0
 	for {
@@ -193,7 +193,7 @@ func RunWorkunit(workunit *core.Workunit) (pstats *core.WorkPerf, err error) {
 		}
 	}
 
-	if workunit.CWL_workunit != nil {
+	if workunit.CWLWorkunit != nil {
 		var work_path string
 		work_path, err = workunit.Path()
 		if err != nil {
@@ -232,7 +232,7 @@ func RunWorkunit(workunit *core.Workunit) (pstats *core.WorkPerf, err error) {
 			return
 		}
 
-		result_doc, xerr := cwl.NewJob_document(tool_results, nil)
+		result_doc, xerr := cwl.NewJobDocument(tool_results, nil)
 		if xerr != nil {
 			//spew.Dump(tool_results)
 			err = fmt.Errorf("(RunWorkunit) NewJob_document returned: %s", xerr.Error())
@@ -269,7 +269,7 @@ func RunWorkunit(workunit *core.Workunit) (pstats *core.WorkPerf, err error) {
 
 		//fmt.Println("CWL-runner receipt:")
 		//spew.Dump(result_doc)
-		workunit.CWL_workunit.Outputs = result_doc
+		workunit.CWLWorkunit.Outputs = result_doc
 
 	}
 
@@ -307,15 +307,15 @@ func RunWorkunitDocker(workunit *core.Workunit) (pstats *core.WorkPerf, err erro
 	wrapper_script_filename_host := path.Join(work_path, wrapper_script_filename)
 	wrapper_script_filename_docker := path.Join(conf.DOCKER_WORK_DIR, wrapper_script_filename)
 
-	if len(workunit.Cmd.Cmd_script) > 0 {
+	if len(workunit.Cmd.CmdScript) > 0 {
 		use_wrapper_script = true
 
 		// create wrapper script
 
 		//conf.DOCKER_WORK_DIR
-		var wrapper_content_string = "#!/bin/bash\n" + strings.Join(workunit.Cmd.Cmd_script, "\n") + "\n"
+		var wrapper_content_string = "#!/bin/bash\n" + strings.Join(workunit.Cmd.CmdScript, "\n") + "\n"
 
-		logger.Debug(1, "write wrapper script: %s\n%s", wrapper_script_filename_host, strings.Join(workunit.Cmd.Cmd_script, ", "))
+		logger.Debug(1, "write wrapper script: %s\n%s", wrapper_script_filename_host, strings.Join(workunit.Cmd.CmdScript, ", "))
 
 		var wrapper_content_bytes = []byte(wrapper_content_string)
 
@@ -547,7 +547,7 @@ func RunWorkunitDocker(workunit *core.Workunit) (pstats *core.WorkPerf, err erro
 	}
 	if workunit.Cmd.HasPrivateEnv {
 		logger.Debug(3, "HasPrivateEnv true")
-		private_envs, err := FetchPrivateEnvByWorkId(workunit.Id)
+		private_envs, err := FetchPrivateEnvByWorkId(workunit.ID)
 		if err != nil {
 			return nil, err
 		}
@@ -559,6 +559,16 @@ func RunWorkunitDocker(workunit *core.Workunit) (pstats *core.WorkPerf, err erro
 		}
 	} else {
 		logger.Debug(3, "HasPrivateEnv false")
+	}
+
+	proxyVariables := [4]string{"HTTP_PROXY", "HTTPS_PROXY", "http_proxy", "https_proxy"}
+	for _, proxyVar := range proxyVariables {
+		proxyVarValue := os.Getenv(proxyVar)
+		if proxyVarValue != "" {
+			envPair := proxyVar + "=" + proxyVarValue
+			docker_environment = append(docker_environment, envPair)
+			docker_environment_string += " --env=" + envPair
+		}
 	}
 
 	stdout_file := path.Join(conf.DOCKER_WORK_DIR, conf.STDOUT_FILENAME)
@@ -608,7 +618,7 @@ func RunWorkunitDocker(workunit *core.Workunit) (pstats *core.WorkPerf, err erro
 	bindstr_predata := ""
 	volume_str := ""
 	if len(workunit.Predata) > 0 {
-		predata_directory := path.Join(conf.DATA_PATH, "predata")
+		predata_directory := path.Join(conf.PREDATA_PATH, "predata")
 		bindstr_predata = predata_directory + "/:" + conf.DOCKER_WORKUNIT_PREDATA_DIR + ":ro"
 
 		bindarray = []string{bindstr_workdir, bindstr_predata} //old version
@@ -963,7 +973,7 @@ func RunWorkunitDirect(workunit *core.Workunit) (pstats *core.WorkPerf, stderr_e
 	msg := fmt.Sprintf("(RunWorkunitDirect) worker: start cmd=%s, args=%v", commandName, args)
 	//fmt.Println(msg)
 	logger.Debug(1, msg)
-	logger.Event(event.WORK_START, "workid="+workunit.Id,
+	logger.Event(event.WORK_START, "workid="+workunit.ID,
 		"cmd="+commandName,
 		fmt.Sprintf("args=%v", args))
 
@@ -1091,7 +1101,7 @@ func RunWorkunitDirect(workunit *core.Workunit) (pstats *core.WorkPerf, stderr_e
 		}
 	}
 
-	logger.Event(event.WORK_END, "workid="+workunit.Id)
+	logger.Event(event.WORK_END, "workid="+workunit.ID)
 
 	pstats = new(core.WorkPerf)
 	pstats.MaxMemUsage = int64(MaxMem)
@@ -1113,7 +1123,7 @@ func runPreWorkExecutionScript(workunit *core.Workunit) (err error) {
 	msg := fmt.Sprintf("worker: start pre-work cmd=%s, args=%v", commandName, args)
 
 	logger.Debug(1, msg)
-	logger.Event(event.PRE_WORK_START, "workid="+workunit.Id,
+	logger.Event(event.PRE_WORK_START, "workid="+workunit.ID,
 		"pre-work cmd="+commandName,
 		fmt.Sprintf("args=%v", args))
 
@@ -1176,7 +1186,7 @@ func runPreWorkExecutionScript(workunit *core.Workunit) (err error) {
 			return errors.New(fmt.Sprintf("wait on pre-work cmd=%s, err=%s", commandName, err.Error()))
 		}
 	}
-	logger.Event(event.PRE_WORK_END, "workid="+workunit.Id)
+	logger.Event(event.PRE_WORK_END, "workid="+workunit.ID)
 	return
 }
 
@@ -1187,7 +1197,7 @@ func SetEnv(workunit *core.Workunit) (envkeys []string, err error) {
 		}
 	}
 	if workunit.Cmd.HasPrivateEnv {
-		envs, err := FetchPrivateEnvByWorkId(workunit.Id)
+		envs, err := FetchPrivateEnvByWorkId(workunit.ID)
 		if err != nil {
 			return envkeys, err
 		}
@@ -1207,7 +1217,7 @@ func UnSetEnv(envkeys []string) {
 }
 
 func FetchPrivateEnvByWorkId(workid string) (envs map[string]string, err error) {
-	targeturl := fmt.Sprintf("%s/work/%s?privateenv&client=%s", conf.SERVER_URL, workid, core.Self.Id)
+	targeturl := fmt.Sprintf("%s/work/%s?privateenv&client=%s", conf.SERVER_URL, workid, core.Self.ID)
 	var headers httpclient.Header
 	if conf.CLIENT_GROUP_TOKEN != "" {
 		headers = httpclient.Header{

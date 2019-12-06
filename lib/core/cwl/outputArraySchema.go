@@ -13,13 +13,13 @@ type OutputArraySchema struct { // Items, Type , Label
 //func (c *CommandOutputArraySchema) Is_CommandOutputParameterType() {}
 
 func (c OutputArraySchema) Type2String() string { return "OutputArraySchema" }
-func (c OutputArraySchema) GetId() string       { return "" }
+func (c OutputArraySchema) GetID() string       { return "" }
 func (c OutputArraySchema) Is_Type()            {}
 
 func NewOutputArraySchema() (coas *OutputArraySchema) {
 
 	coas = &OutputArraySchema{}
-	coas.Type = CWL_array
+	coas.Type = CWLArray
 
 	return
 }

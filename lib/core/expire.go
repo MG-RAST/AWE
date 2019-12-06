@@ -1,29 +1,36 @@
 package core
 
 import (
+	"regexp"
+	"time"
+
 	"github.com/MG-RAST/AWE/lib/conf"
 	"github.com/MG-RAST/AWE/lib/logger"
 	"github.com/MG-RAST/AWE/lib/logger/event"
 	"gopkg.in/mgo.v2/bson"
-	"regexp"
-	"time"
 )
 
 var (
-	Ttl         *JobReaper
+	// Ttl _
+	Ttl *JobReaper
+	// ExpireRegex _
 	ExpireRegex = regexp.MustCompile(`^(\d+)(M|H|D)$`)
 )
 
+// InitReaper _
 func InitReaper() {
 	Ttl = NewJobReaper()
 }
 
+// JobReaper _
 type JobReaper struct{}
 
+// NewJobReaper _
 func NewJobReaper() *JobReaper {
 	return &JobReaper{}
 }
 
+// Handle _
 func (jr *JobReaper) Handle() {
 	waitDuration := time.Duration(conf.EXPIRE_WAIT) * time.Minute
 	for {
@@ -35,7 +42,7 @@ func (jr *JobReaper) Handle() {
 		jobs.GetAllUnsorted(query)
 		// delete expired jobs
 		for _, j := range jobs {
-			logger.Event(event.JOB_EXPIRED, "jobid="+j.Id)
+			logger.Event(event.JOB_EXPIRED, "jobid="+j.ID)
 			if err := j.Delete(); err != nil {
 				logger.Error("Err@job_delete: " + err.Error())
 			}

@@ -3,7 +3,7 @@
 # docker build -t mgrast/awe-submitter -f Dockerfile_submitter .
 
 
-FROM golang:1.11.1-alpine
+FROM golang:1.12-alpine3.10
 
 # git needed for GIT_COMMIT_HASH
 RUN apk update && apk add git
@@ -30,10 +30,18 @@ RUN apk update ; apk add \
   libxslt-dev \
   musl-dev \
   nodejs \
-  python-dev \
-  py-libxml2 \
-  py-pip \
-  py-psutil   
-RUN pip install --upgrade pip ;  pip install lxml ; pip install cwl-runner
-RUN pip uninstall ruamel.yaml ; pip install ruamel.yaml==0.15.48
 
+  python3-dev \
+  py3-libxml2 \
+  py3-pip \
+  py3-psutil   
+
+RUN pip3 install --upgrade pip ;  pip3 install lxml ; pip3 install cwl-runner
+
+
+#   python-dev \
+#   py-libxml2 \
+#   py-pip \
+#   py-psutil   
+# RUN pip install --upgrade pip ;  pip install lxml ; pip install cwl-runner
+# RUN pip uninstall ruamel.yaml ; pip install ruamel.yaml==0.15.48

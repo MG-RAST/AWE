@@ -1,0 +1,116 @@
+<!DOCTYPE HTML>
+<html>
+  <head>
+    <meta http-equiv="content-type" content="text/html; charset=UTF-8">
+    <title>AWE - Home</title>
+    <link rel="icon" href="images/awe-lg.png" type="image/x-icon">
+    <script src="js/config.js"></script>
+    <script src="Retina/js/jquery.min.js"></script>
+    <script src="Retina/js/bootstrap.min.js"></script>
+    <script src="Retina/js/retina.js"></script>
+    <script src="Retina/js/stm.js"></script>
+    <script type="text/javascript" src="Retina/js/jquery.cookie.js"></script>
+    <link rel="stylesheet" type="text/css" href="css/bootstrap.min.css">
+    <link rel="stylesheet" type="text/css" href="css/awe.css">
+    <script>
+        (function () {
+	var k = Retina.keys(RetinaConfig);
+	Retina.traverse(RetinaConfig, function (str) {
+	    if (str.match(/^http\:/) && window.location.toString().substr(0, 5) == 'https') {
+		str = str.replace(/^http\:/, 'https\:');
+	    }
+	    return str;
+	});
+    }).call(this);
+
+    window.logout = function () {
+	jQuery.removeCookie('AuthWebSession', { path: '/' });
+	window.location.reload();
+    }
+var user = jQuery.cookie('AuthWebSession');
+if (RetinaConfig.useOAuthServer) {
+    if (! user ) {
+	window.location = RetinaConfig.auth_url+'/authclient.cgi';
+    }
+}
+jQuery( document ).ready(function(){
+    stm.init({});
+    Retina.init({});
+	    
+    var page = Retina.cgiParam("page") || "home";	
+    document.title = "AWE - "+page.charAt(0).toUpperCase()+page.substr(1);
+    document.getElementById('pageTitle').innerHTML = page.charAt(0).toUpperCase()+page.substr(1);
+    
+    Retina.load_widget("awe_"+page).then( function() {
+	window.awep = Retina.Widget.create('awe_'+page, { target: document.getElementById('mainview') });
+	if (RetinaConfig.useOAuthServer) {
+	    stm.user = JSON.parse(user);
+	    stm.user.firstname = stm.user.name;
+	    stm.user.lastname = "";
+	    awep.loggedIn = true;
+	    awep.authHeader = stm.authHeader = { "Authorization": "oauth "+stm.user.token };
+	    document.getElementById('login_space').innerHTML = '<button class="btn btn-inverse" onclick="logout();" id="logoutButton" style="display: none; float: right; margin-right: 50px; margin-top: 12px;"></button>';
+	    $('#logoutButton').css('display', '');
+	    document.getElementById('logoutButton').innerHTML = stm.user.name;
+	    awep.display();
+	} else {
+	    awep.loginAction = function (action) {
+		var widget = awep;
+		if (action.action == "login" && action.result == "success") {
+		    widget.loggedIn = true;
+		    widget.authHeader = { "Authorization": "mgrast "+action.token };
+		} else {
+		    widget.loggedIn = false;
+		    widget.authHeader = {};
+		}
+		widget.display();
+	    };
+	    if (RetinaConfig.authentication) {
+		Retina.load_widget({"name": "login", "resource": "Retina/widgets/"}).then( function() {
+		    Retina.Widget.create('login', { "target": document.getElementById("login_space"),
+						    "callback": typeof Retina.WidgetInstances["awe_"+page][1].loginAction == "function" ?  Retina.WidgetInstances["awe_"+page][1].loginAction : null });
+		});
+	    }
+	}
+    });
+});
+</script>
+  </head>
+
+  <body style="margin-top: 60px; margin-bottom: 100px;">
+    <div class="navbar navbar-inverse navbar-fixed-top">
+      <div class="navbar-inner">
+	    <div class="container" style="width: 100%; padding-left: 10px;">
+          <img src="images/awe-lg.png" style="float: left; margin-left: -10px; height: 55px;">
+    	  <a class="brand" href="#" style="color: white; cursor: default; margin-top: 8px; margin-left: 30px;" id="pageTitle"></a>
+	  <div class="nav-collapse collapse" style="float: left; margin-top: 8px;">
+	    <ul class="nav">
+	      <li class="">
+		<a href="main.html">Home</a>
+	      </li>
+	      <li class="">
+		<a href="main.html?page=monitor">Status Monitor</a>
+	      </li>
+	      <li class="">
+		<a href="main.html?page=clientgroups">Clientgroups</a>
+	      </li>
+	      <li class="">
+		<a href="main.html?page=panel">Alert Panel</a>
+	      </li>
+	      <li class="">
+		<a href="main.html?page=top">top</a>
+	      </li>
+	    </ul>
+	  </div>
+	  <span id='login_space'></span>
+	  <div style="color: white; text-shadow: 0px -1px 0px rgba(0, 0, 0, 0.25); font-size: 30px; font-weight: 100; margin-top: 15px; left: 100px;" id="serverTitle"></div>
+	    </div>
+      </div>
+    </div>
+
+    <div id="mainview">
+
+    </div>
+    
+  </body>
+</html>

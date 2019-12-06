@@ -5,9 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"io"
 	"io/ioutil"
-	"mime/multipart"
 	"net"
 	"net/http"
 	"os"
@@ -24,12 +22,14 @@ import (
 	"github.com/MG-RAST/golib/httpclient"
 )
 
+// HeartbeatResponse _
 type HeartbeatResponse struct {
 	Code int                        `bson:"status" json:"status"`
 	Data core.HeartbeatInstructions `bson:"data" json:"data"`
 	Errs []string                   `bson:"error" json:"error"`
 }
 
+// ClientResponse _
 type ClientResponse struct {
 	Code int         `bson:"status" json:"status"`
 	Data core.Client `bson:"data" json:"data"`
@@ -37,8 +37,8 @@ type ClientResponse struct {
 }
 
 func heartBeater(control chan int) {
-	fmt.Printf("heartBeater launched, client=%s\n", core.Self.Id)
-	logger.Debug(0, fmt.Sprintf("heartBeater launched, client=%s\n", core.Self.Id))
+	fmt.Printf("heartBeater launched, client=%s\n", core.Self.ID)
+	logger.Debug(0, fmt.Sprintf("heartBeater launched, client=%s\n", core.Self.ID))
 	defer fmt.Printf("heartBeater exiting...\n")
 
 	for {
@@ -51,27 +51,41 @@ func heartBeater(control chan int) {
 	//control <- 2 //we are ending
 }
 
+// OpenstackMetadata _
 // curl http://169.254.169.254/openstack/2015-10-15/meta_data.json | jq '.'
 // documentation: https://docs.openstack.org/admin-guide/compute-networking-nova.html
 // TODO use this!
-type Openstack_Metadata struct {
-	Random_seed       string                   `bson:"random_seed" json:"random_seed"`
-	Uuid              string                   `bson:"uuid" json:"uuid"`
-	Availability_zone string                   `bson:"availability_zone" json:"availability_zone"`
-	Hostname          string                   `bson:"hostname" json:"hostname"`
-	Project_id        string                   `bson:"project_id" json:"project_id"`
-	Meta              *Openstack_Metadata_meta `bson:"meta" json:"meta"`
+type OpenstackMetadata struct {
+	RandomSeed       string                 `bson:"random_seed" json:"random_seed"`
+	UUID             string                 `bson:"uuid" json:"uuid"`
+	AvailabilityZone string                 `bson:"availability_zone" json:"availability_zone"`
+	Hostname         string                 `bson:"hostname" json:"hostname"`
+	ProjectID        string                 `bson:"project_id" json:"project_id"`
+	Meta             *OpenstackMetadataMeta `bson:"meta" json:"meta"`
 }
 
-type Openstack_Metadata_meta struct {
+// OpenstackMetadataMeta _
+type OpenstackMetadataMeta struct {
 	Priority string `bson:"priority" json:"priority"`
 	Role     string `bson:"role" json:"role"`
 	Name     string `bson:"name" json:"name"`
 }
 
-//client sends heartbeat to server to maintain active status and re-register when needed
+// ExitWorker _
+func ExitWorker(newServerUUID string) {
+	logger.Warning("(SendHeartBeat) Server UUID has changed (%s -> %s). Will stop all work units.", core.ServerUUID, newServerUUID)
+	allWork, _ := workmap.GetKeys()
+
+	for _, work := range allWork {
+		_ = DiscardWorkunit(work)
+	}
+	_, _ = fmt.Fprintln(os.Stderr, "AWE server has been restarted, stopping worker now to ensure correct state, bye....")
+	os.Exit(0)
+}
+
+// SendHeartBeat client sends heartbeat to server to maintain active status and re-register when needed
 func SendHeartBeat() (err error) {
-	hbmsg, err := heartbeating(conf.SERVER_URL, core.Self.Id)
+	hbmsg, err := heartbeating(conf.SERVER_URL, core.Self.ID)
 	if err != nil {
 		logger.Debug(3, "(SendHeartBeat) heartbeat returned error: "+err.Error())
 		if strings.Contains(err.Error(), e.ClientNotFound) {
@@ -88,26 +102,25 @@ func SendHeartBeat() (err error) {
 	val, ok := hbmsg["server-uuid"]
 	if ok {
 		if len(val) > 0 {
-			if core.Server_UUID == "" {
+			if core.ServerUUID == "" {
 				logger.Debug(1, "(SendHeartBeat) Setting Server UUID to %s", val)
-				core.Server_UUID = val
+				core.ServerUUID = val
 			} else {
-				if core.Server_UUID != val {
+				if core.ServerUUID != val {
 					// server has been restarted, stop work on client (TODO in future we will try to recover work)
-					logger.Warning("(SendHeartBeat) Server UUID has changed (%s -> %s). Will stop all work units.", core.Server_UUID, val)
-					all_work, _ := workmap.GetKeys()
 
-					for _, work := range all_work {
-						DiscardWorkunit(work)
-					}
-					core.Self.Busy = false
-					core.Server_UUID = val
+					ExitWorker(val)
+
+					//_ = core.Self.SetBusy(false, false)
+					//core.ServerUUID = val
 				}
 			}
 
 		} else {
-			logger.Debug(1, "(SendHeartBeat) No Server UUID received")
+			logger.Debug(1, "(SendHeartBeat) Received empty Server UUID")
 		}
+	} else {
+		logger.Debug(1, "(SendHeartBeat) No Server UUID received")
 	}
 
 	//handle requested ops from the server (HeartbeatInstructions)
@@ -120,7 +133,7 @@ func SendHeartBeat() (err error) {
 					err = xerr
 					return
 				}
-				DiscardWorkunit(work_id)
+				_ = DiscardWorkunit(work_id)
 			}
 		} else if op == "restart" {
 			RestartClient()
@@ -184,50 +197,51 @@ func heartbeating(host string, clientid string) (msg core.HeartbeatInstructions,
 }
 
 // not used, deprecated ?
-func RegisterWithProfile(host string, profile *core.Client) (client *core.Client, err error) {
-	profile_jsonstream, err := json.Marshal(profile)
-	profile_path := conf.DATA_PATH + "/clientprofile.json"
-	logger.Debug(3, "profile_path: %s", profile_path)
-	ioutil.WriteFile(profile_path, []byte(profile_jsonstream), 0644)
+// func RegisterWithProfile(host string, profile *core.Client) (client *core.Client, err error) {
+// 	err
+// 	profile_jsonstream, err := json.Marshal(profile)
+// 	profile_path := conf.DATA_PATH + "/clientprofile.json"
+// 	logger.Debug(3, "profile_path: %s", profile_path)
+// 	ioutil.WriteFile(profile_path, []byte(profile_jsonstream), 0644)
 
-	bodyBuf := &bytes.Buffer{}
-	bodyWriter := multipart.NewWriter(bodyBuf)
-	fileWriter, err := bodyWriter.CreateFormFile("profile", profile_path)
-	if err != nil {
-		return nil, err
-	}
-	fh, err := os.Open(profile_path)
-	if err != nil {
-		return nil, err
-	}
-	_, err = io.Copy(fileWriter, fh)
-	if err != nil {
-		return nil, err
-	}
-	contentType := bodyWriter.FormDataContentType()
-	bodyWriter.Close()
-	targetUrl := host + "/client"
+// 	bodyBuf := &bytes.Buffer{}
+// 	bodyWriter := multipart.NewWriter(bodyBuf)
+// 	fileWriter, err := bodyWriter.CreateFormFile("profile", profile_path)
+// 	if err != nil {
+// 		return nil, err
+// 	}
+// 	fh, err := os.Open(profile_path)
+// 	if err != nil {
+// 		return nil, err
+// 	}
+// 	_, err = io.Copy(fileWriter, fh)
+// 	if err != nil {
+// 		return nil, err
+// 	}
+// 	contentType := bodyWriter.FormDataContentType()
+// 	bodyWriter.Close()
+// 	targetUrl := host + "/client"
 
-	resp, err := http.Post(targetUrl, contentType, bodyBuf)
+// 	resp, err := http.Post(targetUrl, contentType, bodyBuf)
 
-	if err != nil {
-		return nil, err
-	}
-	defer resp.Body.Close()
+// 	if err != nil {
+// 		return nil, err
+// 	}
+// 	defer resp.Body.Close()
 
-	jsonstream, err := ioutil.ReadAll(resp.Body)
+// 	jsonstream, err := ioutil.ReadAll(resp.Body)
 
-	response := new(ClientResponse)
-	if err = json.Unmarshal(jsonstream, response); err != nil {
-		return nil, errors.New("fail to unmashal response:" + string(jsonstream))
-	}
-	if len(response.Errs) > 0 {
-		return nil, errors.New(strings.Join(response.Errs, ","))
-	}
-	response.Data.Init()
-	client = &response.Data
-	return
-}
+// 	response := new(core.RegistrationResponseEnvelope)
+// 	if err = json.Unmarshal(jsonstream, response); err != nil {
+// 		return nil, errors.New("fail to unmashal response:" + string(jsonstream))
+// 	}
+// 	if len(response.Errs) > 0 {
+// 		return nil, errors.New(strings.Join(response.Errs, ","))
+// 	}
+// 	response.Data.Init()
+// 	//client = &response.Data
+// 	return
+// }
 
 // invoked on start of AWE worker AND on ReRegisterWithSelf
 func RegisterWithAuth(host string, pclient *core.Client) (err error) {
@@ -292,7 +306,7 @@ func RegisterWithAuth(host string, pclient *core.Client) (err error) {
 	}
 
 	// evaluate response
-	response := new(ClientResponse)
+	response := new(core.RegistrationResponseEnvelope)
 	logger.Debug(3, "(RegisterWithAuth) client registration: got response")
 	jsonstream, err := ioutil.ReadAll(resp.Body)
 	if err != nil {
@@ -309,6 +323,21 @@ func RegisterWithAuth(host string, pclient *core.Client) (err error) {
 		return
 	}
 
+	rr := response.Data
+
+	if rr.ServerUUID != "" && core.ServerUUID != "" {
+
+		if rr.ServerUUID != core.ServerUUID {
+			ExitWorker(rr.ServerUUID)
+		}
+		logger.Debug(3, "(RegisterWithAuth) server UUID already known")
+	}
+
+	if rr.ServerUUID != "" && core.ServerUUID == "" {
+		logger.Debug(3, "(RegisterWithAuth) Using ServerUUID=%s", rr.ServerUUID)
+		rr.ServerUUID = core.ServerUUID
+	}
+
 	//client = &response.Data
 
 	//client.Init()
@@ -322,10 +351,10 @@ func ReRegisterWithSelf(host string) (err error) {
 	fmt.Printf("lost contact with server, try to re-register\n")
 	err = RegisterWithAuth(host, core.Self)
 	if err != nil {
-		logger.Error("Error: fail to re-register, clientid=" + core.Self.Id)
+		logger.Error("Error: fail to re-register, clientid=" + core.Self.ID)
 		fmt.Printf("failed to re-register\n")
 	} else {
-		logger.Event(event.CLIENT_AUTO_REREGI, "clientid="+core.Self.Id)
+		logger.Event(event.CLIENT_AUTO_REREGI, "clientid="+core.Self.ID)
 		fmt.Printf("re-register successfully\n")
 	}
 	return
@@ -350,7 +379,7 @@ func Set_Metadata(profile *core.Client) {
 			}
 			instance_id, err := getMetaDataField(metadata_url, "instance-id")
 			if err == nil {
-				profile.InstanceId = instance_id
+				profile.InstanceID = instance_id
 			}
 			instance_type, err := getMetaDataField(metadata_url, "instance-type")
 			if err == nil {
@@ -359,7 +388,7 @@ func Set_Metadata(profile *core.Client) {
 			local_ipv4, err := getMetaDataField(metadata_url, "local-ipv4")
 			if err == nil {
 				//profile.Host = local_ipv4 + " (deprecated)"
-				profile.Host_ip = local_ipv4
+				profile.HostIP = local_ipv4
 			}
 
 		} else {
@@ -369,11 +398,11 @@ func Set_Metadata(profile *core.Client) {
 	}
 
 	// fall-back
-	if profile.Host_ip == "" {
+	if profile.HostIP == "" {
 		if addrs, err := net.InterfaceAddrs(); err == nil {
 			for _, a := range addrs {
 				if ipnet, ok := a.(*net.IPNet); ok && !ipnet.IP.IsLoopback() && len(strings.Split(ipnet.IP.String(), ".")) == 4 {
-					profile.Host_ip = ipnet.IP.String()
+					profile.HostIP = ipnet.IP.String()
 					break
 				}
 			}
@@ -390,7 +419,7 @@ func ComposeProfile() (profile *core.Client, err error) {
 	profile.WorkerRuntime.Name = conf.CLIENT_NAME
 	//profile.Host = conf.CLIENT_HOST
 	profile.Hostname = conf.CLIENT_HOSTNAME
-	profile.Host_ip = conf.CLIENT_HOST_IP
+	profile.HostIP = conf.CLIENT_HOST_IP
 
 	profile.Group = conf.CLIENT_GROUP
 	profile.CPUs = runtime.NumCPU()
@@ -438,10 +467,15 @@ func DiscardWorkunit(id core.Workunit_Unique_Identifier) (err error) {
 		}
 
 		workmap.Set(id, ID_DISCARDED, "DiscardWorkunit")
-		err = core.Self.Current_work.Delete(id, true)
+		err = core.Self.CurrentWork.Delete(id, true)
 		if err != nil {
 			logger.Error("(DiscardWorkunit) Could not remove workunit %s from client", id_str)
 			err = nil
+		}
+		var empty bool
+		empty, _ = core.Self.CurrentWork.IsEmpty(false)
+		if empty {
+			_ = core.Self.SetBusy(false, false)
 		}
 	}
 	return

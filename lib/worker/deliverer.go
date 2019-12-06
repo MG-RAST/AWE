@@ -18,7 +18,7 @@ import (
 )
 
 func deliverer(control chan int) {
-	fmt.Printf("deliverer launched, client=%s\n", core.Self.Id)
+	fmt.Printf("deliverer launched, client=%s\n", core.Self.ID)
 	defer fmt.Printf("deliverer exiting...\n")
 	for {
 		err := deliverer_run(control)
@@ -72,7 +72,8 @@ func deliverer_run(control chan int) (err error) { // TODO return all errors
 		if workunit.State == core.WORK_STAT_COMPUTED {
 
 			shock_client := &shock.ShockClient{Host: workunit.ShockHost, Token: workunit.Info.DataToken, Debug: false}
-			data_moved, err := cache.UploadOutputData(workunit, shock_client)
+
+			data_moved, err := cache.UploadOutputData(workunit, shock_client, nil)
 			if err != nil {
 				workunit.SetState(core.WORK_STAT_ERROR, "UploadOutputData failed")
 				logger.Error("(deliverer_run) UploadOutputData returns workid=" + work_str + ", err=" + err.Error())
@@ -86,7 +87,7 @@ func deliverer_run(control chan int) (err error) { // TODO return all errors
 		perfstat.DataOut = float64(move_end-move_start) / 1e9
 		perfstat.Deliver = int64(move_end / 1e9)
 		perfstat.ClientResp = perfstat.Deliver - perfstat.Checkout
-		perfstat.ClientId = core.Self.Id
+		perfstat.ClientId = core.Self.ID
 
 		// notify server the final process results; send perflog, stdout, and stderr if needed
 		// detect e.ClientNotFound
@@ -97,8 +98,6 @@ func deliverer_run(control chan int) (err error) { // TODO return all errors
 			if err != nil {
 				logger.Error("(deliverer_run) workid=%s NotifyWorkunitProcessedWithLogs returned: %s", work_str, err.Error())
 				workunit.Notes = append(workunit.Notes, "[deliverer]"+err.Error())
-				// keep retry
-			} else {
 				error_message := strings.Join(response.Error, ",")
 				if strings.Contains(error_message, e.ClientNotFound) { // TODO need better method than string search. Maybe a field awe_status.
 					//mark this work in Current_work map as false, something needs to be done in the future
@@ -106,11 +105,15 @@ func deliverer_run(control chan int) (err error) { // TODO return all errors
 					//core.Self.Current_work_false(work.Id) //server doesn't know this yet
 					do_retry = false
 				}
+				// keep retry
+			} else {
+
 				if response.Status == http.StatusOK {
 					// success, work delivered
 					logger.Debug(1, "work delivered successfully")
 					do_retry = false
 				} else {
+					error_message := strings.Join(response.Error, ",")
 					logger.Error("(deliverer) response.Status not ok,  workid=%s, err=%s", work_str, error_message)
 				}
 			}
@@ -135,7 +138,7 @@ func deliverer_run(control chan int) (err error) { // TODO return all errors
 	// now final status report sent to server, update some local info
 	if workunit.State == core.WORK_STAT_DONE {
 		logger.Event(event.WORK_DONE, "workid="+work_str)
-		core.Self.Increment_total_completed()
+		core.Self.IncrementTotalCompleted()
 		if conf.AUTO_CLEAN_DIR && workunit.Cmd.Local == false {
 			go removeDirLater(work_path, conf.CLIEN_DIR_DELAY_DONE)
 		}
@@ -145,19 +148,24 @@ func deliverer_run(control chan int) (err error) { // TODO return all errors
 		} else {
 			logger.Event(event.WORK_RETURN, "workid="+work_str)
 		}
-		core.Self.Increment_total_failed(true)
+		core.Self.IncrementTotalFailed(true)
 		if conf.AUTO_CLEAN_DIR && workunit.Cmd.Local == false {
 			go removeDirLater(work_path, conf.CLIEN_DIR_DELAY_FAIL)
 		}
 	}
 
 	// cleanup
-	err = core.Self.Current_work.Delete(work_id, true)
+	err = core.Self.CurrentWork.Delete(work_id, true)
 	if err != nil {
 		logger.Error("Could not remove work_id %s", work_str)
 	}
 	workmap.Delete(work_id)
-	core.Self.Busy = false
+
+	var empty bool
+	empty, _ = core.Self.CurrentWork.IsEmpty(false)
+	if empty {
+		_ = core.Self.SetBusy(false, false)
+	}
 	return
 }
 

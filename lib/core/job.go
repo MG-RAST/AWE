@@ -9,7 +9,7 @@ import (
 	"github.com/MG-RAST/AWE/lib/acl"
 	"github.com/MG-RAST/AWE/lib/conf"
 	"github.com/MG-RAST/AWE/lib/core/cwl"
-	"github.com/MG-RAST/AWE/lib/rwmutex"
+	rwmutex "github.com/MG-RAST/go-rwmutex"
 
 	//cwl_types "github.com/MG-RAST/AWE/lib/core/cwl/types"
 	"io/ioutil"
@@ -17,9 +17,9 @@ import (
 	"path"
 	"path/filepath"
 
-	"github.com/MG-RAST/AWE/lib/core/uuid"
 	"github.com/MG-RAST/AWE/lib/logger"
 	"github.com/MG-RAST/AWE/lib/logger/event"
+	uuid "github.com/MG-RAST/golib/go-uuid/uuid"
 	"gopkg.in/mgo.v2/bson"
 
 	"strconv"
@@ -42,6 +42,7 @@ var JOB_STATS_ACTIVE = []string{JOB_STAT_QUEUING, JOB_STAT_QUEUED, JOB_STAT_INPR
 var JOB_STATS_REGISTERED = []string{JOB_STAT_QUEUING, JOB_STAT_QUEUED, JOB_STAT_INPROGRESS, JOB_STAT_SUSPEND}
 var JOB_STATS_TO_RECOVER = []string{JOB_STAT_INIT, JOB_STAT_QUEUING, JOB_STAT_QUEUED, JOB_STAT_INPROGRESS, JOB_STAT_SUSPEND}
 
+// JobError _
 type JobError struct {
 	ClientFailed string `bson:"clientfailed" json:"clientfailed,omitempty"`
 	WorkFailed   string `bson:"workfailed" json:"workfailed,omitempty"`
@@ -52,20 +53,23 @@ type JobError struct {
 	Status       string `bson:"status" json:"status,omitempty"`
 }
 
+// Job _
 type Job struct {
 	JobRaw `bson:",inline"`
 	Tasks  []*Task `bson:"tasks" json:"tasks"`
 }
 
+// JobRaw _
 type JobRaw struct {
 	rwmutex.RWMutex
-	Id                      string                       `bson:"id" json:"id"` // uuid
-	Acl                     acl.Acl                      `bson:"acl" json:"-"`
+	ID                      string                       `bson:"id" json:"id"` // uuid
+	ACL                     acl.Acl                      `bson:"acl" json:"-"`
 	Info                    *Info                        `bson:"info" json:"info"`
 	Script                  script                       `bson:"script" json:"-"`
 	State                   string                       `bson:"state" json:"state"`
 	Registered              bool                         `bson:"registered" json:"registered"`
-	RemainTasks             int                          `bson:"remaintasks" json:"remaintasks"`
+	RemainTasks             int                          `bson:"remaintasks" json:"remaintasks"` // old-style AWE
+	RemainSteps             int                          `bson:"remainsteps" json:"remainteps"`
 	Expiration              time.Time                    `bson:"expiration" json:"expiration"` // 0 means no expiration
 	UpdateTime              time.Time                    `bson:"updatetime" json:"updatetime"`
 	Error                   *JobError                    `bson:"error" json:"error"`         // error struct exists when in suspended state
@@ -78,27 +82,29 @@ type JobRaw struct {
 	WorkflowInstancesMap    map[string]*WorkflowInstance `bson:"-" json:"-" yaml:"-" mapstructure:"-"`
 	WorkflowInstancesRemain int                          `bson:"workflow_instances_remain" json:"workflow_instances_remain"`
 	Entrypoint              string                       `bson:"entrypoint" json:"entrypoint"` // name of main workflow (typically has name #main or #entrypoint)
+	Root                    string                       `bson:"root" json:"root"`             // UUID of root workflow instance
 	WorkflowContext         *cwl.WorkflowContext         `bson:"context" json:"context" yaml:"context" mapstructure:"context"`
 }
 
-func (job *JobRaw) GetId(do_read_lock bool) (id string, err error) {
-	if do_read_lock {
-		read_lock, xerr := job.RLockNamed("String")
+// GetID _
+func (job *JobRaw) GetID(doReadLock bool) (id string, err error) {
+	if doReadLock {
+		readLock, xerr := job.RLockNamed("String")
 		if xerr != nil {
 			err = xerr
 			return
 		}
-		defer job.RUnlockNamed(read_lock)
+		defer job.RUnlockNamed(readLock)
 	}
 
-	id = job.Id
+	id = job.ID
 	return
 }
 
-// this is in-memory only, not db
-func (job *Job) AddWorkflowInstance(wi *WorkflowInstance, db_sync string, write_lock bool) (err error) {
-	fmt.Printf("(AddWorkflowInstance) id: %s\n", wi.LocalId)
-	if write_lock {
+// AddWorkflowInstance _
+func (job *Job) AddWorkflowInstance(wi *WorkflowInstance, dbSync bool, writeLock bool) (err error) {
+	//fmt.Printf("(AddWorkflowInstance) id: %s\n", wi.LocalID)
+	if writeLock {
 		err = job.LockNamed("AddWorkflowInstance")
 		if err != nil {
 			return
@@ -108,37 +114,57 @@ func (job *Job) AddWorkflowInstance(wi *WorkflowInstance, db_sync string, write_
 
 	if job.WorkflowInstancesMap == nil {
 		job.WorkflowInstancesMap = make(map[string]*WorkflowInstance)
+	} else {
+
+		_, hasWI := job.WorkflowInstancesMap[wi.LocalID]
+		if hasWI {
+
+			//err = fmt.Errorf("(AddWorkflowInstance) WorkflowInstance %s already in map !", wi.LocalID)
+			return
+		}
 	}
 
-	_, has_wi := job.WorkflowInstancesMap[wi.LocalId]
-	if has_wi {
-		err = fmt.Errorf("(AddWorkflowInstance) WorkflowInstance already in map !")
-		return
-	}
-	job.WorkflowInstancesMap[wi.LocalId] = wi
-	err = job.IncrementWorkflowInstancesRemain(1, db_sync, false)
-	if err != nil {
-		err = fmt.Errorf("(AddWorkflowInstance) job.IncrementWorkflowInstancesRemain returned: %s", err.Error())
+	job.WorkflowInstancesMap[wi.LocalID] = wi
+
+	if len(wi.Tasks) > 0 {
+		err = fmt.Errorf("(AddWorkflowInstance) already has tasks !?")
 		return
 	}
 
-	err = wi.SetState(WI_STAT_PENDING, db_sync, true)
+	err = wi.SetStateNoSync(WIStatePending, true) // AddWorkflowInstance
 	if err != nil {
-		err = fmt.Errorf("(AddWorkflowInstance) wi.SetState returned: %s", err.Error())
+		err = fmt.Errorf("(AddWorkflowInstance) wi.SetStateNoSync returned: %s (wi.LocalID: %s)", err.Error(), wi.LocalID)
 		return
 	}
+
+	if dbSync == DbSyncTrue {
+
+		err = dbInsert(wi)
+		if err != nil {
+			err = fmt.Errorf("(AddWorkflowInstance) dbUpsert(wi) returned: %s", err.Error())
+			return
+		}
+	}
+
+	// err = job.IncrementWorkflowInstancesRemain(1, db_sync, false)
+	// if err != nil {
+	// 	err = fmt.Errorf("(AddWorkflowInstance) job.IncrementWorkflowInstancesRemain returned: %s", err.Error())
+	// 	return
+	// }
+
+	//logger.Debug(3, "(AddWorkflowInstance) wi.LocalId: %s , old_state: %s, db_sync: %s", wi.LocalId, old_state, db_sync)
 
 	return
 }
 
-// func (job *Job) GetWorkflowInstanceIndex(id string, context *cwl.WorkflowContext, do_read_lock bool) (index int, err error) {
-// 	if do_read_lock {
-// 		read_lock, xerr := job.RLockNamed("GetWorkflowInstanceIndex")
+// func (job *Job) GetWorkflowInstanceIndex(id string, context *cwl.WorkflowContext, doReadLock bool) (index int, err error) {
+// 	if doReadLock {
+// 		readLock, xerr := job.RLockNamed("GetWorkflowInstanceIndex")
 // 		if xerr != nil {
 // 			err = xerr
 // 			return
 // 		}
-// 		defer job.RUnlockNamed(read_lock)
+// 		defer job.RUnlockNamed(readLock)
 // 	}
 // 	if id == "" {
 // 		id = "_main"
@@ -166,14 +192,15 @@ func (job *Job) AddWorkflowInstance(wi *WorkflowInstance, db_sync string, write_
 
 // }
 
-func (job *Job) GetWorkflowInstance(id string, do_read_lock bool) (wi *WorkflowInstance, ok bool, err error) {
-	if do_read_lock {
-		read_lock, xerr := job.RLockNamed("GetWorkflowInstance")
+// GetWorkflowInstance _
+func (job *Job) GetWorkflowInstance(id string, doReadLock bool) (wi *WorkflowInstance, ok bool, err error) {
+	if doReadLock {
+		readLock, xerr := job.RLockNamed("GetWorkflowInstance")
 		if xerr != nil {
 			err = xerr
 			return
 		}
-		defer job.RUnlockNamed(read_lock)
+		defer job.RUnlockNamed(readLock)
 	}
 	//if id == "" {
 	//	id = "_main"
@@ -198,7 +225,7 @@ func (job *Job) GetWorkflowInstance(id string, do_read_lock bool) (wi *WorkflowI
 // 		id = "_main"
 // 	}
 
-// 	err = dbUpdateJobWorkflow_instancesFieldOutputs(job.Id, id, outputs)
+// 	err = dbUpdateJobWorkflow_instancesFieldOutputs(job.ID, id, outputs)
 // 	if err != nil {
 // 		err = fmt.Errorf("(Set_WorkflowInstance_Outputs) dbUpdateJobWorkflow_instancesFieldOutputs returned: %s", err.Error())
 // 		return
@@ -235,8 +262,9 @@ type JobDep struct {
 	Tasks  []*TaskDep `bson:"tasks" json:"tasks"`
 }
 
+// JobMin _
 type JobMin struct {
-	Id            string                 `bson:"id" json:"id"`
+	ID            string                 `bson:"id" json:"id"`
 	Name          string                 `bson:"name" json:"name"`
 	Size          int64                  `bson:"size" json:"size"`
 	SubmitTime    time.Time              `bson:"submittime" json:"submittime"`
@@ -247,8 +275,9 @@ type JobMin struct {
 	UserAttr      map[string]interface{} `bson:"userattr" json:"userattr"`
 }
 
+// JobLog _
 type JobLog struct {
-	Id         string     `bson:"id" json:"id"`
+	ID         string     `bson:"id" json:"id"`
 	State      string     `bson:"state" json:"state"`
 	UpdateTime time.Time  `bson:"updatetime" json:"updatetime"`
 	Error      *JobError  `bson:"error" json:"error"`
@@ -256,15 +285,17 @@ type JobLog struct {
 	Tasks      []*TaskLog `bson:"tasks" json:"tasks"`
 }
 
+// NewJobRaw _
 func NewJobRaw() (job *JobRaw) {
 	r := &JobRaw{
 		Info: NewInfo(),
-		Acl:  acl.Acl{},
+		ACL:  acl.Acl{},
 	}
 	r.RWMutex.Init("Job")
 	return r
 }
 
+// NewJob _
 func NewJob() (job *Job) {
 	//r_job := NewJobRaw()
 	job = &Job{}
@@ -273,6 +304,7 @@ func NewJob() (job *Job) {
 	return
 }
 
+// NewJobDep _
 func NewJobDep() (job *JobDep) {
 	//r_job := NewJobRaw()
 	//job = &JobDep{JobRaw: *r_job}
@@ -281,7 +313,7 @@ func NewJobDep() (job *JobDep) {
 	return
 }
 
-// this has to be called after Unmarshalling from JSON
+// Init this has to be called after Unmarshalling from JSON
 func (job *Job) Init() (changed bool, err error) {
 	changed = false
 	job.RWMutex.Init("Job")
@@ -292,12 +324,12 @@ func (job *Job) Init() (changed bool, err error) {
 	}
 	job.Registered = true
 
-	if job.Id == "" {
-		job.setId() //uuid for the job
-		logger.Debug(3, "(Job.Init) Set JobID: %s", job.Id)
+	if job.ID == "" {
+		job.setID() //uuid for the job
+		logger.Debug(3, "(Job.Init) Set JobID: %s", job.ID)
 		changed = true
 	} else {
-		logger.Debug(3, "(Job.Init)  Already have JobID: %s", job.Id)
+		logger.Debug(3, "(Job.Init)  Already have JobID: %s", job.ID)
 	}
 
 	if job.Info == nil {
@@ -317,13 +349,13 @@ func (job *Job) Init() (changed bool, err error) {
 
 	context := job.WorkflowContext
 
-	if context != nil && context.If_objects == nil {
-		if context.Graph == nil {
+	if context != nil && context.IfObjects == nil {
+		if context.Root.Graph == nil {
 			err = fmt.Errorf("(job.Init) job.WorkflowContext.Graph == nil")
 			return
 		}
 
-		if len(context.Graph) == 0 {
+		if len(context.Root.Graph) == 0 {
 			err = fmt.Errorf("(job.Init) len(job.WorkflowContext.Graph) == 0")
 			return
 		}
@@ -335,23 +367,23 @@ func (job *Job) Init() (changed bool, err error) {
 		}
 	}
 
-	old_remaintasks := job.RemainTasks
-	job.RemainTasks = 0
+	oldRemainTasks := job.RemainTasks // job.Init
+	newRemainTasks := 0
 
 	for _, task := range job.Tasks {
-		if task.Id == "" {
+		if task.ID == "" {
 			// suspend and create error
-			logger.Error("(job.Init) task.Id empty, job %s broken?", job.Id)
-			//task.Id = job.Id + "_" + uuid.New()
-			task.Id = uuid.New()
+			logger.Error("(job.Init) task.Id empty, job %s broken?", job.ID)
+			//task.Id = job.ID + "_" + uuid.New()
+			task.ID = uuid.New()
 			job.State = JOB_STAT_SUSPEND
 			job.Error = &JobError{
 				ServerNotes: "task.Id was empty",
-				TaskFailed:  task.Id,
+				TaskFailed:  task.ID,
 			}
 			changed = true
 		}
-		t_changed, xerr := task.Init(job, job.Id)
+		t_changed, xerr := task.Init(job, job.ID)
 		if xerr != nil {
 			err = fmt.Errorf("(job.Init) task.Init returned: %s", xerr.Error())
 			return
@@ -360,35 +392,22 @@ func (job *Job) Init() (changed bool, err error) {
 			changed = true
 		}
 		if task.State != TASK_STAT_COMPLETED {
-			job.RemainTasks += 1
+			newRemainTasks++ // job.Init
 		}
 	}
 
 	// try to fix inconsistent state
-	if job.RemainTasks != old_remaintasks {
+	if !job.IsCWL && (newRemainTasks != oldRemainTasks) { // job.Init
+		job.RemainTasks = newRemainTasks
 		changed = true
 	}
 
 	// try to fix inconsistent state
-	//if job.RemainTasks == 0 && job.State != JOB_STAT_COMPLETED {
-	//	job.State = JOB_STAT_COMPLETED
-	//	logger.Debug(3, "fixing state to JOB_STAT_COMPLETED")
+	//if job.RemainSteps > 0 && job.State == JOB_STAT_COMPLETED {
+	//	job.State = JOB_STAT_QUEUED
+	//	logger.Debug(3, "fixing state to JOB_STAT_QUEUED")
 	//	changed = true
 	//}
-
-	// fix job.Info.CompletedTime
-	//if job.State == JOB_STAT_COMPLETED && job.Info.CompletedTime.IsZero() {
-	// better now, than never: // does not make sense
-	//	job.Info.CompletedTime = time.Now()
-	//	changed = true
-	//}
-
-	// try to fix inconsistent state
-	if job.RemainTasks > 0 && job.State == JOB_STAT_COMPLETED {
-		job.State = JOB_STAT_QUEUED
-		logger.Debug(3, "fixing state to JOB_STAT_QUEUED")
-		changed = true
-	}
 
 	//if len(job.Tasks) == 0 {
 	//	err = errors.New("(job.Init) invalid job script: task list empty")
@@ -417,8 +436,8 @@ func (job *Job) Init() (changed bool, err error) {
 	if job.IsCWL {
 
 		entrypoint := job.Entrypoint
-		var cwl_workflow *cwl.Workflow
-		cwl_workflow, err = context.GetWorkflow(entrypoint)
+		var cwlWorkflow *cwl.Workflow
+		cwlWorkflow, err = context.GetWorkflow(entrypoint)
 		//cwl_workflow, ok := context.Workflows[entrypoint]
 		if err != nil {
 			err = fmt.Errorf("(job.Init) Workflow \"%s\" not found: %s", entrypoint, err.Error())
@@ -426,35 +445,82 @@ func (job *Job) Init() (changed bool, err error) {
 			//for key, _ := range context.Workflows {
 			//	fmt.Printf("(job.Init) Workflows key: %s\n", key)
 			//}
-			for key, _ := range context.All {
+			for key, _ := range context.Objects {
 				fmt.Printf("(job.Init) All key: %s\n", key)
 			}
 			return
 		}
 
 		job.WorkflowContext = context
-		job.CWL_workflow = cwl_workflow
+		job.CWL_workflow = cwlWorkflow
 
 	}
 
 	return
 }
 
+// GetRemainTasks _
+func (job *Job) GetRemainTasks() (remainTasks int, err error) {
+	remainTasks = job.RemainTasks
+	return
+}
+
+// SetRemainTasks _
+func (job *Job) SetRemainTasks(remainTasks int) (err error) {
+	err = job.LockNamed("SetRemainTasks")
+	if err != nil {
+		return
+	}
+	defer job.Unlock()
+
+	if remainTasks == job.RemainTasks {
+		return
+	}
+	err = dbUpdateJobFieldInt(job.ID, "remaintasks", remainTasks)
+	if err != nil {
+		return
+	}
+	job.RemainTasks = remainTasks
+	return
+}
+
+// IncrementRemainTasks _
+func (job *Job) IncrementRemainTasks(inc int) (err error) {
+	err = job.LockNamed("IncrementRemainTasks")
+	if err != nil {
+		return
+	}
+	defer job.Unlock()
+
+	logger.Debug(3, "(IncrementRemainTasks) called with inc=%d", inc)
+
+	newRemainTask := job.RemainTasks + inc
+	logger.Debug(3, "(IncrementRemainTasks) new value of RemainTasks: %d", newRemainTask)
+	err = dbUpdateJobFieldInt(job.ID, "remaintasks", newRemainTask)
+	if err != nil {
+		return
+	}
+	job.RemainTasks = newRemainTask
+	return
+}
+
+// RLockRecursive _
 func (job *Job) RLockRecursive() {
 	for _, task := range job.Tasks {
 		task.RLockAnon()
 	}
 }
 
+// RUnlockRecursive _
 func (job *Job) RUnlockRecursive() {
 	for _, task := range job.Tasks {
 		task.RUnlockAnon()
 	}
 }
 
-//set job's uuid
-func (job *Job) setId() {
-	job.Id = uuid.New()
+//setID set job's uuid
+func (job *Job) setID() {
+	job.ID = uuid.New()
 	return
 }
 
@@ -476,6 +542,7 @@ func (job *Job) UpdateFile(files FormFiles, field string) (err error) {
 	return
 }
 
+// SaveToDisk _
 func (job *Job) SaveToDisk() (err error) {
 	var job_path string
 	job_path, err = job.Path()
@@ -483,9 +550,9 @@ func (job *Job) SaveToDisk() (err error) {
 		err = fmt.Errorf("Save() Path error: %v", err)
 		return
 	}
-	bsonPath := path.Join(job_path, job.Id+".bson")
+	bsonPath := path.Join(job_path, job.ID+".bson")
 	os.Remove(bsonPath)
-	logger.Debug(1, "Save() bson.Marshal next: %s", job.Id)
+	logger.Debug(1, "Save() bson.Marshal next: %s", job.ID)
 	nbson, err := bson.Marshal(job)
 	if err != nil {
 		err = errors.New("error in Marshal in job.Save(), error=" + err.Error())
@@ -505,6 +572,7 @@ func (job *Job) SaveToDisk() (err error) {
 	return
 }
 
+// Deserialize_b64 _
 func Deserialize_b64(encoding string, target interface{}) (err error) {
 	byte_array, err := b64.StdEncoding.DecodeString(encoding)
 	if err != nil {
@@ -520,13 +588,14 @@ func Deserialize_b64(encoding string, target interface{}) (err error) {
 	return
 }
 
+// Save _
 func (job *Job) Save() (err error) {
 
-	if job.Id == "" {
+	if job.ID == "" {
 		err = fmt.Errorf("(job.Save()) job id empty")
 		return
 	}
-	logger.Debug(1, "(job.Save()) saving job: %s", job.Id)
+	logger.Debug(1, "(job.Save()) saving job: %s", job.ID)
 
 	job.UpdateTime = time.Now()
 	err = job.SaveToDisk()
@@ -535,29 +604,31 @@ func (job *Job) Save() (err error) {
 		return
 	}
 
-	logger.Debug(1, "(job.Save()) dbUpsert next: %s", job.Id)
+	logger.Debug(1, "(job.Save()) dbUpsert next: %s", job.ID)
 	//spew.Dump(job)
 
 	err = dbUpsert(job)
 	if err != nil {
-		err = fmt.Errorf("(job.Save()) dbUpsert failed (job_id=%s) error=%s", job.Id, err.Error())
+		err = fmt.Errorf("(job.Save()) dbUpsert failed (job_id=%s) error=%s", job.ID, err.Error())
 		return
 	}
-	logger.Debug(1, "(job.Save()) job saved: %s", job.Id)
+	logger.Debug(1, "(job.Save()) job saved: %s", job.ID)
 	return
 }
 
+// Delete _
 func (job *Job) Delete() (err error) {
-	if err = dbDelete(bson.M{"id": job.Id}, conf.DB_COLL_JOBS); err != nil {
+	if err = dbDelete(bson.M{"id": job.ID}, conf.DB_COLL_JOBS); err != nil {
 		return err
 	}
 	if err = job.Rmdir(); err != nil {
 		return err
 	}
-	logger.Event(event.JOB_FULL_DELETE, "jobid="+job.Id)
+	logger.Event(event.JOB_FULL_DELETE, "jobid="+job.ID)
 	return
 }
 
+// Mkdir _
 func (job *Job) Mkdir() (err error) {
 	var path string
 	path, err = job.Path()
@@ -572,6 +643,7 @@ func (job *Job) Mkdir() (err error) {
 	return
 }
 
+// Rmdir _
 func (job *Job) Rmdir() (err error) {
 	var path string
 	path, err = job.Path()
@@ -581,6 +653,7 @@ func (job *Job) Rmdir() (err error) {
 	return os.RemoveAll(path)
 }
 
+// SetFile _
 func (job *Job) SetFile(file FormFile) (err error) {
 	var path string
 	path, err = job.FilePath()
@@ -589,25 +662,26 @@ func (job *Job) SetFile(file FormFile) (err error) {
 	return
 }
 
-//---Path functions
+// Path ---Path functions
 func (job *Job) Path() (path string, err error) {
-	return getPathByJobId(job.Id)
+	return getPathByJobID(job.ID)
 }
 
+// FilePath _
 func (job *Job) FilePath() (path string, err error) {
 	if job.Script.Path != "" {
 		path = job.Script.Path
 		return
 	}
-	path, err = getPathByJobId(job.Id)
+	path, err = getPathByJobID(job.ID)
 	if err != nil {
 		return
 	}
-	path = path + "/" + job.Id + ".script"
+	path = path + "/" + job.ID + ".script"
 	return
 }
 
-func getPathByJobId(id string) (path string, err error) {
+func getPathByJobID(id string) (path string, err error) {
 	if len(id) < 6 {
 		err = fmt.Errorf("Job-Id format wrong: \"%s\"", id)
 		return
@@ -616,15 +690,15 @@ func getPathByJobId(id string) (path string, err error) {
 	return
 }
 
-// get tasks form from all subworkflows in the job
+// GetTasks get tasks form from all subworkflows in the job
 func (job *Job) GetTasks() (tasks []*Task, err error) {
 	tasks = []*Task{}
 
-	read_lock, err := job.RLockNamed("GetTasks")
+	readLock, err := job.RLockNamed("GetTasks")
 	if err != nil {
 		return
 	}
-	defer job.RUnlockNamed(read_lock)
+	defer job.RUnlockNamed(readLock)
 
 	if job.IsCWL {
 		logger.Debug(3, "(GetTasks) iscwl len(job.WorkflowInstancesMap): %d", len(job.WorkflowInstancesMap))
@@ -653,12 +727,25 @@ func (job *Job) GetTasks() (tasks []*Task, err error) {
 
 func (job *Job) GetState(do_lock bool) (state string, err error) {
 	if do_lock {
-		read_lock, xerr := job.RLockNamed("GetState")
+		readLock, xerr := job.RLockNamed("GetState")
 		if xerr != nil {
 			err = xerr
 			return
 		}
-		defer job.RUnlockNamed(read_lock)
+		defer job.RUnlockNamed(readLock)
+	}
+	state = job.State
+	return
+}
+
+func (job *Job) GetStateTimeout(do_lock bool, timeout time.Duration) (state string, err error) {
+	if do_lock {
+		readLock, xerr := job.RLockNamedTimeout("GetStateTimeout", timeout)
+		if xerr != nil {
+			err = xerr
+			return
+		}
+		defer job.RUnlockNamed(readLock)
 	}
 	state = job.State
 	return
@@ -680,7 +767,7 @@ func (job *Job) AddTask(task *Task) (err error) {
 	}
 	defer job.Unlock()
 
-	id := job.Id
+	id := job.ID
 
 	err = dbPushJobTask(id, task)
 	if err != nil {
@@ -694,7 +781,7 @@ func (job *Job) AddTask(task *Task) (err error) {
 //---Field update functions
 
 func (job *Job) SetState(newState string, oldstates []string) (err error) {
-	err = job.LockNamed("SetState")
+	err = job.LockNamed("job/SetState")
 	if err != nil {
 		return
 	}
@@ -721,7 +808,7 @@ func (job *Job) SetState(newState string, oldstates []string) (err error) {
 		}
 	}
 
-	err = dbUpdateJobFieldString(job.Id, "state", newState)
+	err = dbUpdateJobFieldString(job.ID, "state", newState)
 	if err != nil {
 		return
 	}
@@ -731,14 +818,14 @@ func (job *Job) SetState(newState string, oldstates []string) (err error) {
 	switch newState {
 	case JOB_STAT_COMPLETED:
 		newTime := time.Now()
-		err = dbUpdateJobFieldTime(job.Id, "info.completedtime", newTime)
+		err = dbUpdateJobFieldTime(job.ID, "info.completedtime", newTime)
 		if err != nil {
 			return
 		}
 		job.Info.CompletedTime = newTime
 	case JOB_STAT_INPROGRESS:
 		time_now := time.Now()
-		jobid := job.Id
+		jobid := job.ID
 		err = job.Info.SetStartedTime(jobid, time_now)
 		if err != nil {
 			return
@@ -748,7 +835,7 @@ func (job *Job) SetState(newState string, oldstates []string) (err error) {
 
 	// unset error if not suspended
 	if (newState != JOB_STAT_SUSPEND) && (job.Error != nil) {
-		err = dbUpdateJobFieldNull(job.Id, "error")
+		err = dbUpdateJobFieldNull(job.ID, "error")
 		if err != nil {
 			return
 		}
@@ -766,81 +853,11 @@ func (job *Job) SetError(newError *JobError) (err error) {
 	//spew.Dump(newError)
 
 	update_value := bson.M{"error": newError}
-	err = dbUpdateJobFields(job.Id, update_value)
+	err = dbUpdateJobFields(job.ID, update_value)
 	if err != nil {
 		return
 	}
 	job.Error = newError
-	return
-}
-
-func (job *Job) GetRemainTasks() (remain_tasks int, err error) {
-	remain_tasks = job.RemainTasks
-	return
-}
-
-func (job *Job) SetRemainTasks(remain_tasks int) (err error) {
-	err = job.LockNamed("SetRemainTasks")
-	if err != nil {
-		return
-	}
-	defer job.Unlock()
-
-	if remain_tasks == job.RemainTasks {
-		return
-	}
-	err = dbUpdateJobFieldInt(job.Id, "remaintasks", remain_tasks)
-	if err != nil {
-		return
-	}
-	job.RemainTasks = remain_tasks
-	return
-}
-
-func (job *Job) IncrementRemainTasks(inc int) (err error) {
-	err = job.LockNamed("IncrementRemainTasks")
-	if err != nil {
-		return
-	}
-	defer job.Unlock()
-
-	logger.Debug(3, "(IncrementRemainTasks) called with inc=%d", inc)
-
-	newRemainTask := job.RemainTasks + inc
-
-	if newRemainTask < 0 {
-		logger.Error("(IncrementRemainTasks) newRemainTask would be negativ, TODO fix!") // TODO this has to be fixed correctly
-		newRemainTask = 0
-	}
-
-	logger.Debug(3, "(IncrementRemainTasks) new value of RemainTasks: %d", newRemainTask)
-	err = dbUpdateJobFieldInt(job.Id, "remaintasks", newRemainTask)
-	if err != nil {
-		return
-	}
-	job.RemainTasks = newRemainTask
-	return
-}
-
-func (job *Job) IncrementWorkflowInstancesRemain(inc int, db_sync string, write_lock bool) (err error) {
-	if write_lock {
-		err = job.LockNamed("IncrementWorkflowInstancesRemain")
-		if err != nil {
-			return
-		}
-		defer job.Unlock()
-	}
-	logger.Debug(3, "(IncrementWorkflowInstancesRemain) called with inc=%d", inc)
-
-	newRemainWf := job.WorkflowInstancesRemain + inc
-	logger.Debug(3, "(IncrementWorkflowInstancesRemain) new value of WorkflowInstancesRemain: %d", newRemainWf)
-	if db_sync == "db_sync_yes" {
-		err = dbUpdateJobFieldInt(job.Id, "workflow_instances_remain", newRemainWf)
-		if err != nil {
-			return
-		}
-	}
-	job.WorkflowInstancesRemain = newRemainWf
 	return
 }
 
@@ -852,7 +869,7 @@ func (job *Job) IncrementResumed(inc int) (err error) {
 	defer job.Unlock()
 
 	newResumed := job.Resumed + inc
-	err = dbUpdateJobFieldInt(job.Id, "resumed", newResumed)
+	err = dbUpdateJobFieldInt(job.ID, "resumed", newResumed)
 	if err != nil {
 		return
 	}
@@ -867,7 +884,7 @@ func (job *Job) SetClientgroups(clientgroups string) (err error) {
 	}
 	defer job.Unlock()
 
-	err = dbUpdateJobFieldString(job.Id, "info.clientgroups", clientgroups)
+	err = dbUpdateJobFieldString(job.ID, "info.clientgroups", clientgroups)
 	if err != nil {
 		return
 	}
@@ -882,7 +899,7 @@ func (job *Job) SetPriority(priority int) (err error) {
 	}
 	defer job.Unlock()
 
-	err = dbUpdateJobFieldInt(job.Id, "info.priority", priority)
+	err = dbUpdateJobFieldInt(job.ID, "info.priority", priority)
 	if err != nil {
 		return
 	}
@@ -897,7 +914,7 @@ func (job *Job) SetPipeline(pipeline string) (err error) {
 	}
 	defer job.Unlock()
 
-	err = dbUpdateJobFieldString(job.Id, "info.pipeline", pipeline)
+	err = dbUpdateJobFieldString(job.ID, "info.pipeline", pipeline)
 	if err != nil {
 		return
 	}
@@ -916,7 +933,7 @@ func (job *Job) SetDataToken(token string) (err error) {
 		return
 	}
 	// update toekn in info
-	err = dbUpdateJobFieldString(job.Id, "info.token", token)
+	err = dbUpdateJobFieldString(job.ID, "info.token", token)
 	if err != nil {
 		return
 	}
@@ -930,7 +947,7 @@ func (job *Job) SetDataToken(token string) (err error) {
 
 	// set using auth if not before
 	if !job.Info.Auth {
-		err = dbUpdateJobFieldBoolean(job.Id, "info.auth", true)
+		err = dbUpdateJobFieldBoolean(job.ID, "info.auth", true)
 		if err != nil {
 			return
 		}
@@ -964,7 +981,7 @@ func (job *Job) SetExpiration(expire string) (err error) {
 	}
 
 	newExpiration := currTime.Add(expireTime)
-	err = dbUpdateJobFieldTime(job.Id, "expiration", newExpiration)
+	err = dbUpdateJobFieldTime(job.ID, "expiration", newExpiration)
 	if err != nil {
 		return
 	}
@@ -993,7 +1010,7 @@ func (job *Job) GetPrivateEnv(taskid string) (env map[string]string, err error) 
 
 func (job *Job) GetJobLogs() (jlog *JobLog, err error) {
 	jlog = new(JobLog)
-	jlog.Id = job.Id
+	jlog.ID = job.ID
 	jlog.State = job.State
 	jlog.UpdateTime = job.UpdateTime
 	jlog.Error = job.Error

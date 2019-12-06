@@ -1,6 +1,6 @@
 package core
 
-import "github.com/MG-RAST/AWE/lib/rwmutex"
+import rwmutex "github.com/MG-RAST/go-rwmutex"
 
 //"fmt"
 //"github.com/MG-RAST/AWE/lib/logger"

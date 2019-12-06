@@ -5,29 +5,41 @@ import (
 	"strconv"
 )
 
+// Boolean _
 type Boolean bool
 
-func (b *Boolean) Is_CWL_object() {}
+// IsCWLObject _
+func (b *Boolean) IsCWLObject() {}
 
-func (b *Boolean) GetClass() string      { return string(CWL_boolean) } // for CWL_object
-func (b *Boolean) GetType() CWLType_Type { return CWL_boolean }
+// GetClass _
+func (b *Boolean) GetClass() string { return string(CWLBoolean) } // for CWLObject
+
+// GetType _
+func (b *Boolean) GetType() CWLType_Type { return CWLBoolean }
 func (b *Boolean) String() string        { return strconv.FormatBool(bool(*b)) }
 
-func (b *Boolean) GetId() string  { return "" }
-func (b *Boolean) SetId(i string) {}
+// GetID _
+func (b *Boolean) GetID() string { return "" }
 
-func (b *Boolean) Is_CWL_minimal() {}
+// SetID _
+func (b *Boolean) SetID(i string) {}
 
+// IsCWLMinimal _
+func (b *Boolean) IsCWLMinimal() {}
+
+// NewBooleanFrombool _
 func NewBooleanFrombool(value bool) (b *Boolean) {
 
-	var b_nptr Boolean
-	b_nptr = Boolean(value)
+	var bNptr Boolean
+	bNptr = Boolean(value)
 
-	b = &b_nptr
+	b = &bNptr
 
 	return
 
 }
+
+// NewBoolean _
 func NewBoolean(id string, value bool) (b *Boolean) {
 
 	_ = id
@@ -36,15 +48,16 @@ func NewBoolean(id string, value bool) (b *Boolean) {
 
 }
 
+// NewBooleanFromInterface _
 func NewBooleanFromInterface(id string, native interface{}) (b *Boolean, err error) {
 
 	_ = id
 
-	real_bool, ok := native.(bool)
+	realBool, ok := native.(bool)
 	if !ok {
 		err = fmt.Errorf("(NewBooleanFromInterface) Cannot create bool")
 		return
 	}
-	b = NewBooleanFrombool(real_bool)
+	b = NewBooleanFrombool(realBool)
 	return
 }

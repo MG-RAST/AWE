@@ -1,5 +1,6 @@
 package core
 
+// CheckoutRequest Object used by worker to request a workunit
 type CheckoutRequest struct {
 	policy     string
 	fromclient string

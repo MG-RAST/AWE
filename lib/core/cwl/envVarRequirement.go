@@ -13,8 +13,10 @@ type EnvVarRequirement struct {
 	EnvDef          []EnvironmentDef `yaml:"envDef,omitempty" bson:"envDef,omitempty" json:"envDef,omitempty" mapstructure:"envDef,omitempty"`
 }
 
-func (c EnvVarRequirement) GetId() string { return "None" }
+// GetID _
+func (r EnvVarRequirement) GetID() string { return "None" }
 
+// NewEnvVarRequirement _
 func NewEnvVarRequirement(original interface{}, context *WorkflowContext) (r *EnvVarRequirement, err error) {
 
 	original, err = MakeStringMap(original, context)
@@ -23,16 +25,16 @@ func NewEnvVarRequirement(original interface{}, context *WorkflowContext) (r *En
 		return
 	}
 
-	obj_map, ok := original.(map[string]interface{})
+	objMap, ok := original.(map[string]interface{})
 
 	if !ok {
 		err = fmt.Errorf("(NewEnvVarRequirement) type is not a map[string]interface{} (got %s)", reflect.TypeOf(original))
 		return
 	}
 
-	enfDev, has_enfDev := obj_map["envDef"]
-	if has_enfDev {
-		obj_map["envDef"], err = GetEnfDefArray(enfDev)
+	enfDev, hasEnfDev := objMap["envDef"]
+	if hasEnfDev {
+		objMap["envDef"], err = GetEnfDefArray(enfDev, context)
 		if err != nil {
 			err = fmt.Errorf("(NewEnvVarRequirement) GetEnfDefArray returned: %s", err.Error())
 			return
@@ -45,7 +47,7 @@ func NewEnvVarRequirement(original interface{}, context *WorkflowContext) (r *En
 
 	var requirement EnvVarRequirement
 	r = &requirement
-	err = mapstructure.Decode(obj_map, &requirement)
+	err = mapstructure.Decode(objMap, &requirement)
 
 	requirement.Class = "EnvVarRequirement"
 
@@ -57,8 +59,9 @@ func NewEnvVarRequirement(original interface{}, context *WorkflowContext) (r *En
 	return
 }
 
+// Evaluate _
 func (r *EnvVarRequirement) Evaluate(inputs interface{}, context *WorkflowContext) (err error) {
-	for i, _ := range r.EnvDef {
+	for i := range r.EnvDef {
 		err = r.EnvDef[i].Evaluate(inputs, context)
 		if err != nil {
 			err = fmt.Errorf("(EnvVarRequirement/Evaluate) Evaluate returned: %s", err.Error())

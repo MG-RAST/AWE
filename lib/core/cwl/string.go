@@ -11,38 +11,49 @@ import (
 //	Value string `yaml:"value,omitempty" json:"value,omitempty" bson:"value,omitempty"`
 //}
 
+// String _
 type String string
 
-func (s *String) Is_CWL_object() {}
+// IsCWLObject _
+func (s *String) IsCWLObject() {}
 
-func (s *String) GetClass() string      { return string(CWL_string) } // for CWL_object
-func (s *String) GetType() CWLType_Type { return CWL_string }
+// GetClass _
+func (s *String) GetClass() string { return string(CWLString) } // for CWLObject
+
+// GetType _
+func (s *String) GetType() CWLType_Type { return CWLString }
 func (s *String) String() string        { return string(*s) }
 
-func (s *String) GetId() string  { return "" }
-func (s *String) SetId(i string) {}
+// GetID _
+func (s *String) GetID() string { return "" }
 
-func (s *String) Is_CWL_minimal() {}
+// SetID _
+func (s *String) SetID(i string) {}
 
+// IsCWLMinimal _
+func (s *String) IsCWLMinimal() {}
+
+// NewString _
 func NewString(value string) (s *String) {
 
-	var s_nptr String
-	s_nptr = String(value)
+	var sNptr String
+	sNptr = String(value)
 
-	s = &s_nptr
+	s = &sNptr
 
 	return
 
 }
 
+// NewStringFromInterface _
 func NewStringFromInterface(native interface{}) (s *String, err error) {
 
-	real_string, ok := native.(string)
+	realString, ok := native.(string)
 	if !ok {
 		err = fmt.Errorf("(NewStringFromInterface) Cannot create string")
 		return
 	}
-	s = NewString(real_string)
+	s = NewString(realString)
 
 	return
 }

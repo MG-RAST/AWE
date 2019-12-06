@@ -22,7 +22,7 @@ func NewCommandOutputRecordField(native interface{}, schemata []CWLType_Type, co
 	}
 
 	var rf *RecordField
-	rf, err = NewRecordFieldFromInterface(native, schemata, "CommandOutput", context)
+	rf, err = NewRecordFieldFromInterface(native, "", schemata, "CommandOutput", context)
 	if err != nil {
 		err = fmt.Errorf("(NewCommandOutputRecordField) NewRecordFieldFromInterface returned: %s", err.Error())
 		return
@@ -31,13 +31,13 @@ func NewCommandOutputRecordField(native interface{}, schemata []CWLType_Type, co
 	crf = &CommandOutputRecordField{}
 	crf.RecordField = *rf
 
-	native_map, ok := native.(map[string]interface{})
+	nativeMap, ok := native.(map[string]interface{})
 	if !ok {
 		err = fmt.Errorf("(NewCommandOutputRecordField) type assertion error, got %s", reflect.TypeOf(native))
 		return
 	}
 
-	outputBinding, has_outputBinding := native_map["outputBinding"]
+	outputBinding, has_outputBinding := nativeMap["outputBinding"]
 	if has_outputBinding {
 
 		crf.OutputBinding, err = NewCommandOutputBinding(outputBinding, context)

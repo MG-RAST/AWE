@@ -16,15 +16,15 @@ type Directory struct {
 	Listing  []CWLType `yaml:"listing,omitempty" json:"listing,omitempty" bson:"listing,omitempty" mapstructure:"listing,omitempty"`
 }
 
-func (d Directory) GetClass() string { return string(CWL_Directory) }
+func (d Directory) GetClass() string { return string(CWLDirectory) }
 
 func (d Directory) String() string { return d.Path }
 
 func NewDirectory() (d *Directory) {
 
 	d = &Directory{}
-	d.Class = string(CWL_Directory)
-	d.Type = CWL_Directory
+	d.Class = string(CWLDirectory)
+	d.Type = CWLDirectory
 	return
 }
 
@@ -44,13 +44,16 @@ func NewDirectoryFromInterface(obj interface{}, context *WorkflowContext) (d *Di
 
 	listing, has_listing := obj_map["listing"]
 	if has_listing {
+		//fmt.Println("(NewDirectoryFromInterface) listing:")
+		//spew.Dump(listing)
 		var listing_types *[]CWLType
 		listing_types, err = NewFDArray(listing, "", context)
 		if err != nil {
 			err = fmt.Errorf("(MakeFile) NewFDArray returns: %s", err.Error())
 			return
 		}
-
+		//fmt.Println("(NewDirectoryFromInterface) listing_types:")
+		//spew.Dump(listing_types)
 		obj_map["listing"] = listing_types
 
 	}
@@ -69,12 +72,10 @@ func NewDirectoryFromInterface(obj interface{}, context *WorkflowContext) (d *Di
 // Array of Files and/or Directories
 func NewFDArray(native interface{}, parent_id string, context *WorkflowContext) (cwl_array_ptr *[]CWLType, err error) {
 
-	//fmt.Println("(NewFDArray)")
-	//spew.Dump(native)
-
 	switch native.(type) {
 	case []map[string]interface{}:
-		native_array, ok := native.([]map[string]interface{})
+
+		nativeArray, ok := native.([]map[string]interface{})
 		if !ok {
 			err = fmt.Errorf("(NewFDArray) could not parse []map[string]interface{}")
 			return
@@ -82,10 +83,10 @@ func NewFDArray(native interface{}, parent_id string, context *WorkflowContext) 
 
 		cwl_array := []CWLType{}
 
-		for _, value := range native_array {
+		for _, value := range nativeArray {
 
 			var value_cwl CWLType
-			value_cwl, err = NewCWLType("", value, context)
+			value_cwl, err = NewCWLType("", "", value, context)
 			if err != nil {
 				err = fmt.Errorf("(NewFDArray) in loop, NewCWLType returned: %s", err.Error())
 				return
@@ -106,7 +107,7 @@ func NewFDArray(native interface{}, parent_id string, context *WorkflowContext) 
 		cwl_array_ptr = &cwl_array
 	case []interface{}:
 
-		native_array, ok := native.([]interface{})
+		nativeArray, ok := native.([]interface{})
 		if !ok {
 			err = fmt.Errorf("(NewFDArray) could not parse []interface{}")
 			return
@@ -114,10 +115,10 @@ func NewFDArray(native interface{}, parent_id string, context *WorkflowContext) 
 
 		cwl_array := []CWLType{}
 
-		for _, value := range native_array {
+		for _, value := range nativeArray {
 
 			var value_cwl CWLType
-			value_cwl, err = NewCWLType("", value, context)
+			value_cwl, err = NewCWLType("", "", value, context)
 			if err != nil {
 				err = fmt.Errorf("(NewFDArray) in loop, NewCWLType returned: %s", err.Error())
 				return
@@ -139,7 +140,7 @@ func NewFDArray(native interface{}, parent_id string, context *WorkflowContext) 
 	default:
 		//fmt.Println("(NewFDArray) array element")
 		//spew.Dump(native)
-		ct, xerr := NewCWLType("", native, context)
+		ct, xerr := NewCWLType("", parent_id, native, context)
 		if xerr != nil {
 			err = xerr
 			return

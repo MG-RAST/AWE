@@ -1,0 +1,20 @@
+{
+    "info": {
+        "pipeline": "test_sleep",
+        "name": "testname_sleep",
+        "project": "testproject",
+        "clientgroups": "docker"
+    },
+    "tasks": [
+        {
+            "cmd": {
+                "name": "sleep",
+                "args": "10m",
+                "description": "sleep test",
+                "_Dockerimage": "ubuntu"
+            },
+            "taskid": "0", 
+            "totalwork": 1
+        }
+    ]
+}

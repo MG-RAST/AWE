@@ -9,7 +9,7 @@ type ScatterFeatureRequirement struct {
 	BaseRequirement `bson:",inline" yaml:",inline" json:",inline" mapstructure:",squash"`
 }
 
-func (c ScatterFeatureRequirement) GetId() string { return "None" }
+func (c ScatterFeatureRequirement) GetID() string { return "None" }
 
 func NewScatterFeatureRequirement(original interface{}) (r *ScatterFeatureRequirement, err error) {
 	var requirement ScatterFeatureRequirement

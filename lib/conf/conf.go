@@ -70,7 +70,7 @@ var (
 	RECOVER_MAX int
 
 	// AWE server port
-	SITE_PORT int
+	SITE_PORT int // deprecated
 	API_PORT  int
 	// AWE server external address
 	SITE_URL string
@@ -109,6 +109,7 @@ var (
 
 	// Directories
 	DATA_PATH     string
+	PREDATA_PATH  string
 	SITE_PATH     string
 	LOGS_PATH     string
 	AWF_PATH      string
@@ -191,8 +192,8 @@ var (
 	SUBMITTER_DOWNLOAD_FILES bool
 	SUBMITTER_SHOCK_AUTH     string
 	SUBMITTER_AWE_AUTH       string
-
-	SUBMITTER_JOB_NAME string
+	SUBMITTER_UPLOAD_INPUT   bool
+	SUBMITTER_JOB_NAME       string
 
 	// WORKER (CWL)
 	CWL_RUNNER_ARGS string
@@ -272,12 +273,12 @@ func getConfiguration(c *config.Config, mode string) (c_store *Config_store) {
 
 	if mode == "server" {
 		// Ports
-		c_store.AddInt(&SITE_PORT, 8081, "Ports", "site-port", "Internal port to run AWE Monitor on", "")
-		c_store.AddInt(&API_PORT, 8001, "Ports", "api-port", "Internal port for API", "")
+		c_store.AddInt(&SITE_PORT, 8081, "Ports", "site-port", "Internal port to run AWE Monitor on", "") // deprecated
+		c_store.AddInt(&API_PORT, 80, "Ports", "api-port", "Internal port for API", "")
 
 		// External
-		c_store.AddString(&SITE_URL, "http://localhost:8081", "External", "site-url", "External URL of AWE monitor, including port", "")
-		c_store.AddString(&API_URL, "http://localhost:8001", "External", "api-url", "External API URL of AWE server, including port", "")
+		c_store.AddString(&SITE_URL, "http://localhost:8081", "External", "site-url", "External URL of AWE monitor, including port", "") // deprecated
+		c_store.AddString(&API_URL, "http://localhost:80", "External", "api-url", "External API URL of AWE server, including port", "")
 
 		// SSL
 		c_store.AddBool(&SSL_ENABLED, false, "SSL", "enable", "", "")
@@ -370,7 +371,7 @@ func getConfiguration(c *config.Config, mode string) (c_store *Config_store) {
 		c_store.AddString(&SUBMITTER_AWE_AUTH, "", "Client", "awe_auth", "format: \"<bearer> <token>\"", "")
 
 		c_store.AddString(&SUBMITTER_JOB_NAME, "", "Client", "job_name", "name of job, default is filename", "")
-
+		c_store.AddBool(&SUBMITTER_UPLOAD_INPUT, false, "Client", "upload_input", "upload job input files into shock and return new job input structure", "")
 		//c_store.AddString(&SUBMITTER_AUTH_DATATOKEN, "", "Client", "shock_auth_bearer", "bearer for shock", "")
 	}
 
@@ -386,6 +387,8 @@ func getConfiguration(c *config.Config, mode string) (c_store *Config_store) {
 
 		c_store.AddString(&SUPPORTED_APPS, "", "Client", "supported_apps", "list of suported apps, comma separated", "")
 		c_store.AddString(&APP_PATH, "", "Client", "app_path", "the file path of supported app", "")
+
+		c_store.AddString(&PREDATA_PATH, "", "predata Directory", "predata", "a file path for storing predata, by default same as --data", "")
 
 		c_store.AddString(&WORK_PATH, "/mnt/data/awe/work", "Client", "workpath", "the root dir for workunit working dirs", "")
 		c_store.AddString(&METADATA, "", "Client", "metadata", "", "e.g. ec2, openstack...")
@@ -584,6 +587,12 @@ func Init_conf(mode string) (err error) {
 
 	SITE_PATH = cleanPath(SITE_PATH)
 	DATA_PATH = cleanPath(DATA_PATH)
+	if PREDATA_PATH == "" {
+		PREDATA_PATH = DATA_PATH
+	} else {
+		PREDATA_PATH = cleanPath(PREDATA_PATH)
+	}
+
 	LOGS_PATH = cleanPath(LOGS_PATH)
 	WORK_PATH = cleanPath(WORK_PATH)
 	APP_PATH = cleanPath(APP_PATH)

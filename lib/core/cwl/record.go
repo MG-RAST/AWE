@@ -3,18 +3,24 @@ package cwl
 import (
 	"encoding/json"
 	"fmt"
+	"path"
 	"reflect"
+	"strings"
 
 	"github.com/davecgh/go-spew/spew"
 )
 
+// Record _
 type Record map[string]CWLType
 
-func (r *Record) Is_CWL_object() {}
+// IsCWLObject _
+func (r *Record) IsCWLObject() {}
 
+// GetClass _
 func (r *Record) GetClass() string { return "record" }
 
-func (r *Record) GetId() string {
+// GetID _
+func (r *Record) GetID() string {
 
 	id, ok := (*r)["id"]
 	if ok {
@@ -27,21 +33,31 @@ func (r *Record) GetId() string {
 	return ""
 }
 
-func (r *Record) SetId(id string) {
-	//ids := NewString(id)
+// SetID _
+func (r *Record) SetID(id string) {
+	idString := NewString(id)
+	rNptr := *r
+	rNptr["id"] = idString
 	//(*r)["id"] = ids
 }
 
-func (r *Record) GetType() CWLType_Type { return CWL_record }
+// GetType _
+func (r *Record) GetType() CWLType_Type { return CWLRecord }
 
-func (r *Record) Is_CWL_minimal()     {}
-func (r *Record) Is_Type()            {}
+// IsCWLMinimal _
+func (r *Record) IsCWLMinimal() {}
+
+// Is_Type _
+func (r *Record) Is_Type() {}
+
+// Type2String _
 func (r *Record) Type2String() string { return "record" }
 
 //func (r *Record) Is_CommandInputParameterType()  {}
 //func (r *Record) Is_CommandOutputParameterType() {}
 
-func NewRecord(id string, native interface{}, context *WorkflowContext) (record Record, err error) {
+// NewRecord _
+func NewRecord(id string, parentID string, native interface{}, context *WorkflowContext) (record Record, err error) {
 
 	native, err = MakeStringMap(native, context)
 	if err != nil {
@@ -56,37 +72,55 @@ func NewRecord(id string, native interface{}, context *WorkflowContext) (record 
 
 		//fmt.Println("Got a record:")
 		//spew.Dump(native)
-		native_map, _ := native.(map[string]interface{})
+		nativeMap, _ := native.(map[string]interface{})
 
 		var keys []string
 
-		for key_str, _ := range native_map {
-			keys = append(keys, key_str)
+		for keyStr := range nativeMap {
+			keys = append(keys, keyStr)
 		}
 
-		for _, key_str := range keys {
+		for _, keyStr := range keys {
 
-			value, _ := native_map[key_str]
+			value, _ := nativeMap[keyStr]
 
-			var value_cwl CWLType
+			var valueCwl CWLType
 
-			value_cwl, err = NewCWLType(key_str, value, context)
+			valueCwl, err = NewCWLType(keyStr, "", value, context)
 			if err != nil {
 				fmt.Println("Got a record:")
 				spew.Dump(native)
-				err = fmt.Errorf("(NewRecord) %s NewCWLType returned: %s", key_str, err.Error())
+				err = fmt.Errorf("(NewRecord) %s NewCWLType returned: %s", keyStr, err.Error())
 				return
 			}
 
-			record[key_str] = value_cwl
+			record[keyStr] = valueCwl
 
 			//record.Fields = append(record.Fields, value_cwl)
 
 		}
 
-		_, has_id := native_map["id"]
-		if !has_id {
+		if id != "" {
+			record.SetID(id)
 			//record["id"] = NewString(id)
+		}
+
+		if parentID != "" {
+			idIf, ok := nativeMap["id"]
+			if ok {
+				var idStr string
+				idStr, ok = idIf.(string)
+				if ok {
+					if !strings.HasPrefix(idStr, "#") {
+						idStr = path.Join(parentID, idStr)
+						record.SetID(idStr)
+
+					}
+
+				}
+
+			}
+
 		}
 
 		return
@@ -100,8 +134,9 @@ func NewRecord(id string, native interface{}, context *WorkflowContext) (record 
 	return
 }
 
-func (c Record) String() string {
-	bytes, err := json.Marshal(c)
+// String _
+func (r *Record) String() string {
+	bytes, err := json.Marshal(r)
 	if err != nil {
 		return err.Error()
 	}

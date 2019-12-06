@@ -1,6 +1,8 @@
 package controller
 
 import (
+	"net/http"
+
 	"github.com/MG-RAST/AWE/lib/conf"
 	"github.com/MG-RAST/AWE/lib/core"
 	e "github.com/MG-RAST/AWE/lib/errors"
@@ -8,7 +10,6 @@ import (
 	"github.com/MG-RAST/AWE/lib/user"
 	"github.com/MG-RAST/golib/goweb"
 	mgo "gopkg.in/mgo.v2"
-	"net/http"
 )
 
 // GET, POST, PUT, DELETE, OPTIONS: /cgroup/{cgid}/token/ (only OPTIONS, PUT and DELETE are implemented)
@@ -55,9 +56,9 @@ var ClientGroupTokenController goweb.ControllerFunc = func(cx *goweb.Context) {
 
 	// User must have write permissions on clientgroup or be clientgroup owner or be an admin or the clientgroup is publicly writable.
 	// The other possibility is that public write of clientgroups is enabled and the clientgroup is publicly writable.
-	rights := cg.Acl.Check(u.Uuid)
-	public_rights := cg.Acl.Check("public")
-	if (u.Uuid != "public" && (cg.Acl.Owner == u.Uuid || rights["write"] == true || u.Admin == true || public_rights["write"] == true)) ||
+	rights := cg.ACL.Check(u.Uuid)
+	public_rights := cg.ACL.Check("public")
+	if (u.Uuid != "public" && (cg.ACL.Owner == u.Uuid || rights["write"] == true || u.Admin == true || public_rights["write"] == true)) ||
 		(u.Uuid == "public" && conf.ANON_CG_WRITE == true && public_rights["write"] == true) {
 
 		switch cx.Request.Method {

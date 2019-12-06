@@ -3,7 +3,7 @@ package core
 import (
 	"fmt"
 
-	"github.com/MG-RAST/AWE/lib/rwmutex"
+	rwmutex "github.com/MG-RAST/go-rwmutex"
 )
 
 type WorkflowInstanceMap struct {
@@ -37,22 +37,20 @@ func (wim *WorkflowInstanceMap) GetWorkflowInstances() (wis []*WorkflowInstance,
 	return
 }
 
-func (wim *WorkflowInstanceMap) Add(workflow_instance *WorkflowInstance) (err error) {
+func (wim *WorkflowInstanceMap) Add(ID string, workflow_instance *WorkflowInstance) (err error) {
 	err = wim.LockNamed("WorkflowInstanceMap/Add")
 	if err != nil {
 		return
 	}
 	defer wim.Unlock()
 
-	id, _ := workflow_instance.GetId(false)
-
-	_, ok := wim._map[id]
+	_, ok := wim._map[ID]
 	if ok {
-		err = fmt.Errorf("(WorkflowInstanceMap/Add) workflow_instance %s already in map", id)
+		err = fmt.Errorf("(WorkflowInstanceMap/Add) workflow_instance %s already in map", ID)
 		return
 	}
 
-	wim._map[id] = workflow_instance
+	wim._map[ID] = workflow_instance
 	return
 }
 

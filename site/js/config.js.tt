@@ -1,9 +1,0 @@
-var RetinaConfig = {
-    "awe_ip": "[% api_url %]",
-    "workflow_ip": "[% api_url %]/awf",
-    "authResources": { "default": "[% auth_default %]"[% auth_resources %] },
-    "mgrast_api": "http://api.metagenomics.anl.gov",
-    "authentication": [% auth_on %],
-    "useOAuthServer": [% auth_oauthserver %],
-    "auth_url": "[% auth_url %]"
-}

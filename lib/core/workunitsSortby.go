@@ -26,7 +26,7 @@ func (w WorkunitsSortby) Less(i, j int) bool {
 	default:
 		return w.Workunits[i].Info.SubmitTime.Before(w.Workunits[j].Info.SubmitTime)
 	case "wuid":
-		return w.Workunits[i].Id < w.Workunits[j].Id
+		return w.Workunits[i].ID < w.Workunits[j].ID
 	case "client":
 		return w.Workunits[i].Client < w.Workunits[j].Client
 	case "info.submittime":

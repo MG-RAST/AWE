@@ -26,4 +26,5 @@ const (
 	QueueSuspend             = "Server queue is suspended"
 	UnAuth                   = "User Unauthorized"
 	ServerNotFound           = "Server not found"
+	LockTimeout              = "Did not get lock"
 )

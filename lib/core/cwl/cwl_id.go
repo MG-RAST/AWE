@@ -1,21 +1,24 @@
 package cwl
 
-import (
 //"fmt"
 //"reflect"
-)
 
-type CWL_id interface {
+// IdentifierInterface _
+type IdentifierInterface interface {
 	//CWL_bbject_interface
 	//GetClass() string
-	GetId() string
-	SetId(string)
+	GetID() string
+	SetID(string)
 	//is_Any()
 }
 
-type CWL_id_Impl struct {
-	Id string `yaml:"id,omitempty" json:"id,omitempty" bson:"id,omitempty"`
+// IdentifierImpl _
+type IdentifierImpl struct {
+	ID string `yaml:"id,omitempty" json:"id,omitempty" bson:"id,omitempty"`
 }
 
-func (c *CWL_id_Impl) GetId() string   { return c.Id }
-func (c *CWL_id_Impl) SetId(id string) { c.Id = id; return }
+// GetID _
+func (c *IdentifierImpl) GetID() string { return c.ID }
+
+// SetID _
+func (c *IdentifierImpl) SetID(id string) { c.ID = id; return }

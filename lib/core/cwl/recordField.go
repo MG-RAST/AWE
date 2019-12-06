@@ -3,6 +3,8 @@ package cwl
 import (
 	"fmt"
 	"reflect"
+
+	"github.com/davecgh/go-spew/spew"
 )
 
 // http://www.commonwl.org/v1.0/CommandLineTool.html#InputRecordField
@@ -25,35 +27,46 @@ type RecordField struct {
 // CommandOutputRecordField
 //     CWLType | CommandOutputRecordSchema | CommandOutputEnumSchema | CommandOutputArraySchema | string | array<CWLType | CommandOutputRecordSchema | CommandOutputEnumSchema | CommandOutputArraySchema | string>
 
-func NewRecordFieldFromInterface(native interface{}, schemata []CWLType_Type, context_p string, context *WorkflowContext) (rf *RecordField, err error) {
+// NewRecordFieldFromInterface _
+func NewRecordFieldFromInterface(native interface{}, name string, schemata []CWLType_Type, context_p string, context *WorkflowContext) (rf *RecordField, err error) {
 
 	native, err = MakeStringMap(native, context)
 	if err != nil {
 		return
 	}
 
+	rf = &RecordField{}
+
+	if name != "" {
+		rf.Name = name
+	}
+
 	switch native.(type) {
 	case map[string]interface{}:
-		native_map, ok := native.(map[string]interface{})
+		nativeMap, ok := native.(map[string]interface{})
 		if !ok {
 			err = fmt.Errorf("(NewRecordFieldFromInterface) type switch error")
 			return
 		}
 
-		rf = &RecordField{}
-
-		name, has_name := native_map["name"]
-		if has_name {
+		nameIf, hasName := nativeMap["name"]
+		if hasName {
 			var ok bool
-			rf.Name, ok = name.(string)
+			var nameStr string
+			nameStr, ok = nameIf.(string)
+
 			if !ok {
 				err = fmt.Errorf("(NewRecordFieldFromInterface) type error for name (%s)", reflect.TypeOf(name))
 				return
 			}
+			if nameStr != "" {
+				rf.Name = nameStr
+			}
+
 		}
 
-		label, has_label := native_map["label"]
-		if has_label {
+		label, hasLabel := nativeMap["label"]
+		if hasLabel {
 			var ok bool
 			rf.Label, ok = label.(string)
 			if !ok {
@@ -62,8 +75,8 @@ func NewRecordFieldFromInterface(native interface{}, schemata []CWLType_Type, co
 			}
 		}
 
-		doc, has_doc := native_map["doc"]
-		if has_doc {
+		doc, hasDoc := nativeMap["doc"]
+		if hasDoc {
 			var ok bool
 			rf.Doc, ok = doc.(string)
 			if !ok {
@@ -72,10 +85,10 @@ func NewRecordFieldFromInterface(native interface{}, schemata []CWLType_Type, co
 			}
 		}
 
-		the_type, has_type := native_map["type"]
-		if has_type {
+		typeIf, hasType := nativeMap["type"]
+		if hasType {
 
-			rf.Type, err = NewCWLType_TypeArray(the_type, schemata, context_p, false, context)
+			rf.Type, err = NewCWLType_TypeArray(typeIf, schemata, context_p, false, context)
 			if err != nil {
 				err = fmt.Errorf("(NewRecordFieldFromInterface) NewCWLTypeArray returned: %s", err.Error())
 				return
@@ -84,9 +97,17 @@ func NewRecordFieldFromInterface(native interface{}, schemata []CWLType_Type, co
 		}
 
 		return
+	case []interface{}:
+		// this is only types
+		rf.Type, err = NewCWLType_TypeArray(native, schemata, context_p, false, context)
+		if err != nil {
+			err = fmt.Errorf("(NewRecordFieldFromInterface) NewCWLTypeArray returned: %s", err.Error())
+			return
+		}
 
 	default:
-		err = fmt.Errorf("(NewRecordFieldFromInterface) unknown type")
+		spew.Dump(native)
+		err = fmt.Errorf("(NewRecordFieldFromInterface) unknown type %s", reflect.TypeOf(native))
 	}
 
 	return

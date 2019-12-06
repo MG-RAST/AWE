@@ -121,21 +121,22 @@ type anonymous struct {
 }
 
 type resource struct {
-	R             []string  `json:"resources"`
-	F             []string  `json:"info_indexes"`
-	U             string    `json:"url"`
-	D             string    `json:"documentation"`
-	Title         string    `json:"title"` // title to show in AWE monitor
-	C             string    `json:"contact"`
-	I             string    `json:"id"`
-	O             []string  `json:"auth"`
-	P             anonymous `json:"anonymous_permissions"`
-	T             string    `json:"type"`
-	S             string    `json:"queue_status"`
-	V             string    `json:"version"`
-	Time          string    `json:"server_time"`
-	GitCommitHash string    `json:"git_commit_hash"`
-	Uptime        string    `json:"uptime"`
+	R []string `json:"resources"`
+	F []string `json:"info_indexes"`
+	U string   `json:"url"`
+	//D             string    `json:"documentation"`
+	Title string    `json:"title"` // title to show in AWE monitor
+	C     string    `json:"contact"`
+	I     string    `json:"id"`
+	O     []string  `json:"auth"`
+	P     anonymous `json:"anonymous_permissions"`
+	T     string    `json:"type"`
+	S     string    `json:"queue_status"`
+	V     string    `json:"version"`
+	Time  string    `json:"server_time"`
+	//GitCommitHash string    `json:"git_commit_hash"`
+	Uptime       string `json:"uptime"`
+	InstanceUUID string `json:"uuid"`
 }
 
 func ResourceDescription(cx *goweb.Context) {
@@ -162,10 +163,10 @@ func ResourceDescription(cx *goweb.Context) {
 	}
 
 	r := resource{
-		R:     []string{},
-		F:     core.JobInfoIndexes,
-		U:     apiUrl(cx) + "/",
-		D:     siteUrl(cx) + "/",
+		R: []string{},
+		F: core.JobInfoIndexes,
+		U: apiUrl(cx) + "/",
+		//D:     siteUrl(cx) + "/",
 		Title: conf.TITLE,
 		C:     conf.ADMIN_EMAIL,
 		I:     "AWE",
@@ -176,7 +177,8 @@ func ResourceDescription(cx *goweb.Context) {
 		V:     conf.VERSION,
 		Time:  time.Now().Format(longDateForm),
 		//GitCommitHash: conf.GIT_COMMIT_HASH,
-		Uptime: time.Since(core.Start_time).String(),
+		Uptime:       time.Since(core.StartTime).String(),
+		InstanceUUID: core.ServerUUID,
 	}
 
 	if core.Service == "server" {
@@ -196,6 +198,7 @@ func apiUrl(cx *goweb.Context) string {
 	return "http://" + cx.Request.Host
 }
 
+// deprecated
 func siteUrl(cx *goweb.Context) string {
 	if conf.SITE_URL != "" {
 		return conf.SITE_URL
@@ -210,6 +213,8 @@ func ParseMultipartForm(r *http.Request) (params map[string]string, files core.F
 	params = make(map[string]string)
 	files = make(core.FormFiles)
 
+	//fmt.Println("http.Request:")
+	//spew.Dump(r)
 	reader, xerr := r.MultipartReader()
 	if xerr != nil {
 		err = fmt.Errorf("(ParseMultipartForm) MultipartReader not created: %s", xerr.Error())
@@ -228,37 +233,47 @@ func ParseMultipartForm(r *http.Request) (params map[string]string, files core.F
 		}
 
 		//fmt.Printf("(ParseMultipartForm) part: \"%s\" \n", part.FileName())
-		//spew.Dump(part)
 
 		if part.FileName() == "" {
 			//fmt.Printf("(ParseMultipartForm) filename empty\n")
-			buffer := make([]byte, 32*1024)
-			n, err := part.Read(buffer)
-			//fmt.Printf("(ParseMultipartForm) n=%d\n", n)
-			//if n == 0 {
-			//	break
-			//}
-			if err != nil {
-				//fmt.Printf("(ParseMultipartForm) error: %s\n", err.Error())
-				if err != io.EOF {
-					err = fmt.Errorf("(ParseMultipartForm) part.Read(buffer) error: %s", err.Error())
-					return nil, nil, err
+			//fmt.Printf("(ParseMultipartForm) part.FormName(): %s\n", part.FormName())
+			value := ""
+
+			loopCount := 0
+		READLOOP:
+			for true {
+				loopCount++
+				buffer := make([]byte, 32*1024)
+				n, err := part.Read(buffer)
+
+				//fmt.Printf("(ParseMultipartForm) (loop %d) n=%d\n", loopCount, n)
+
+				if err != nil {
+					//fmt.Printf("(ParseMultipartForm) error: %s\n", err.Error())
+					if err != io.EOF {
+						err = fmt.Errorf("(ParseMultipartForm) part.Read(buffer) error: %s", err.Error())
+						return nil, nil, err
+					}
 				}
 
-				if err == io.EOF { // inidicates end, butr you should use buffer
-					err = nil
+				value += string(buffer[0:n])
 
+				if err != nil {
+					//err == io.EOF
+					// inidicates end, but you should use buffer
+					err = nil
+					break READLOOP
 				}
 
 			}
 			//fmt.Printf("(ParseMultipartForm) no error\n")
-			buf_len := 50
-			if n < 50 {
-				buf_len = n
+			viewSize := len(value)
+			if viewSize > 50 {
+				viewSize = 50
 			}
-			logger.Debug(3, "FormName: %s Content: %s", part.FormName(), buffer[0:buf_len])
-			//fmt.Printf("(ParseMultipartForm) writing param: %s\n", buffer[0:n])
-			params[part.FormName()] = fmt.Sprintf("%s", buffer[0:n])
+			logger.Debug(3, "FormName: %s Content: %s", part.FormName(), value[0:viewSize])
+			//fmt.Printf("(ParseMultipartForm) writing param: %s\n", value[0:viewSize])
+			params[part.FormName()] = value
 		} else {
 			//fmt.Printf("(ParseMultipartForm) found filename")
 			tmpPath := fmt.Sprintf("%s/temp/%d%d", conf.DATA_PATH, rand.Int(), rand.Int())
@@ -381,18 +396,21 @@ func GetClientGroup(cx *goweb.Context) (cg *core.ClientGroup, done bool) {
 	return
 }
 
-func DecodeBase64(cx *goweb.Context, id string) (return_id string) {
+// DecodeBase64 _
+// decodes if prefix "base64:" exists
+func DecodeBase64(id string) (returnID string, err error) {
 	if strings.HasPrefix(id, "base64:") {
-		id_b64 := strings.TrimPrefix(id, "base64:")
-		id_bytes, err := base64.StdEncoding.DecodeString(id_b64)
+		idB64 := strings.TrimPrefix(id, "base64:")
+		var idBytes []byte
+		idBytes, err = base64.StdEncoding.DecodeString(idB64)
 		if err != nil {
-			cx.RespondWithErrorMessage("error decoding base64 workunit identifier: "+id, http.StatusBadRequest)
+			err = fmt.Errorf("(DecodeBase64) base64.StdEncoding.DecodeString returned: %s (idB64: %s)", err.Error(), idB64)
 			return
 		}
 
-		return_id = string(id_bytes[:])
+		returnID = string(idBytes[:])
 	} else {
-		return_id = id
+		returnID = id
 	}
 
 	return

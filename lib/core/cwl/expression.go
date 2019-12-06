@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+	"math"
 	"reflect"
 	"regexp"
 	"strings"
@@ -60,7 +61,7 @@ func (e Expression) EvaluateExpression(self interface{}, inputs interface{}, con
 
 			value, xerr := vm.Run(javascript_function)
 			if xerr != nil {
-				err = fmt.Errorf("(EvaluateExpression) Javascript complained: A) %s", xerr.Error())
+				err = fmt.Errorf("(EvaluateExpression) Javascript complained: A) %s (javascript_function: %s)", xerr.Error(), javascript_function)
 				return
 			}
 			//fmt.Printf("(EvaluateExpression) reflect.TypeOf(value): %s\n", reflect.TypeOf(value))
@@ -107,11 +108,18 @@ func (e Expression) EvaluateExpression(self interface{}, inputs interface{}, con
 					value_returned = NewFloat(exported_value.(float32))
 				case float64:
 					//fmt.Println("got a double")
-					value_returned = NewDouble(exported_value.(float64))
+
+					value_returnedFloat := exported_value.(float64)
+					if math.IsNaN(value_returnedFloat) {
+						err = fmt.Errorf("(EvaluateExpression) float64 IsNaN ")
+						return
+					}
+
+					value_returned = NewDouble(value_returnedFloat)
 				case uint64:
 					value_returned, err = NewInt(exported_value.(int), context)
 					if err != nil {
-						err = fmt.Errorf("(NewCWLType) NewInt: %s", err.Error())
+						err = fmt.Errorf("(EvaluateExpression) NewInt: %s", err.Error())
 						return
 					}
 				case []interface{}: //Array
@@ -123,7 +131,7 @@ func (e Expression) EvaluateExpression(self interface{}, inputs interface{}, con
 					//spew.Dump(exported_value)
 					//err = fmt.Errorf("(EvaluateExpression) record not supported yet")
 
-					value_returned, err = NewCWLType("", exported_value, context)
+					value_returned, err = NewCWLType("", "", exported_value, context)
 					if err != nil {
 						err = fmt.Errorf("(EvaluateExpression) NewCWLType returned: %s", err.Error())
 						return
@@ -184,7 +192,7 @@ func (e Expression) EvaluateExpression(self interface{}, inputs interface{}, con
 		fmt.Printf("reflect.TypeOf(value_exported): %s\n", reflect.TypeOf(value_exported))
 
 		var value_cwl CWLType
-		value_cwl, err = NewCWLType("", value_exported, context)
+		value_cwl, err = NewCWLType("", "", value_exported, context)
 		if err != nil {
 			err = fmt.Errorf("(NewWorkunit) Error parsing javascript VM result value, cwl.NewCWLType returns: %s", err.Error())
 			return

@@ -22,7 +22,7 @@ type ResourceRequirement struct {
 	OutdirMax       interface{} `yaml:"outdirMax,omitempty" bson:"outdirMax,omitempty" json:"outdirMax,omitempty"` //long | string | Expression
 }
 
-func (r ResourceRequirement) GetId() string { return "None" }
+func (r ResourceRequirement) GetID() string { return "None" }
 
 func (r *ResourceRequirement) Evaluate(inputs interface{}, context *WorkflowContext) (err error) {
 

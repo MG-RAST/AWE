@@ -6,10 +6,11 @@ import (
 
 type InlineJavascriptRequirement struct {
 	BaseRequirement `bson:",inline" yaml:",inline" json:",inline" mapstructure:",squash"`
-	ExpressionLib   []string `yaml:"expressionLib,omitempty" bson:"expressionLib,omitempty" json:"expressionLib,omitempty"`
+	//CWLObjectImpl   `yaml:",inline" json:",inline" bson:",inline" mapstructure:",squash"`
+	ExpressionLib []string `yaml:"expressionLib,omitempty" bson:"expressionLib,omitempty" json:"expressionLib,omitempty"`
 }
 
-func (c InlineJavascriptRequirement) GetId() string { return "None" }
+func (c InlineJavascriptRequirement) GetID() string { return "None" }
 
 func NewInlineJavascriptRequirement() InlineJavascriptRequirement {
 	var requirement InlineJavascriptRequirement

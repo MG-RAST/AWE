@@ -38,7 +38,7 @@ RUN apk update ; apk add \
 
 RUN pip3 install --upgrade pip ;  pip3 install lxml ; pip3 install cwl-runner
 
-
+# Old python 2 support and temporary fix for bug in ruamel
 #   python-dev \
 #   py-libxml2 \
 #   py-pip \
